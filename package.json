@@ -1,0 +1,27 @@
+{
+  "name": "notion-job-application-pipeline",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "auth:wobo": "tsx scripts/auth/login-wobo.ts",
+    "auth:handshake": "tsx scripts/auth/login-handshake.ts",
+    "auth:jackjill": "tsx scripts/auth/login-jackjill.ts",
+    "test:access": "tsx scripts/test-access.ts",
+    "source:wobo": "tsx scripts/sources/wobo.ts",
+    "source:handshake": "tsx scripts/sources/handshake.ts",
+    "source:jackjill": "tsx scripts/sources/jackjill.ts",
+    "source:all": "tsx scripts/source-all.ts",
+    "source:all:parallel": "PARALLEL=1 tsx scripts/source-all.ts",
+    "log:notion": "tsx scripts/log-to-notion.ts"
+  },
+  "dependencies": {
+    "playwright": "^1.52.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  }
+}

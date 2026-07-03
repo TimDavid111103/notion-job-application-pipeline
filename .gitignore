@@ -1,0 +1,10 @@
+node_modules/
+.auth/
+dist/
+.playwright-cli/
+.DS_Store
+*.log
+notion-payloads.json
+sourced-jobs.md
+notes/*.png
+notes/*-debug.*
