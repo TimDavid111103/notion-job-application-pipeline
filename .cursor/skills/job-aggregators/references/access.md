@@ -1,8 +1,11 @@
 # Aggregator Access Reference
 
-Auth is one-time per aggregator. Sessions live in `.auth/{wobo,handshake,jackjill}.json`. Sourcing runs **headless** by default (`HEADED=1` for debug).
+Auth is one-time per aggregator. Sessions live in repo `.auth/{wobo,handshake,jackjill}.json`.
+Sourcing runs **headless** by default (`HEADED=1` for debug). Run all commands from **repo root**.
 
-## Auth (headed, one-time)
+## Auth (headed, one-time — fallback only)
+
+Normal runs reuse saved sessions. Re-auth only when a source script hits a login or expired session:
 
 ```bash
 npm run auth:wobo        # email: 30.recess_archaea@icloud.com
@@ -23,6 +26,7 @@ npm run test:access
 | Post-login URL | `https://www.wobo.ai/dashboard` |
 | Feed location | Dashboard (not `/feed` — that URL 404s) |
 | Auth file | `.auth/wobo.json` |
+| Runner | `npm run source:wobo` → `scripts/sources/wobo.ts` |
 
 **Selectors**
 
@@ -41,6 +45,7 @@ npm run test:access
 |---|---|
 | Post-login URL | `https://app.joinhandshake.com/job-search` |
 | Auth file | `.auth/handshake.json` |
+| Runner | `npm run source:handshake` → `scripts/sources/handshake.ts` |
 
 **Selectors**
 
@@ -58,6 +63,7 @@ npm run test:access
 |---|---|
 | Post-login URL | `https://app.jackandjill.ai/jack/dashboard/inbox` |
 | Auth file | `.auth/jackjill.json` |
+| Runners | `npm run source:jackjill` → `scripts/sources/jackjill.ts`; daily clean-out → `tsx scripts/sources/jack-empty.ts` |
 
 **Selectors**
 
@@ -68,7 +74,7 @@ npm run test:access
 | View job post | `getByRole('link', { name: /view job post/i })` — href is Job URL, not `?review=` |
 | Track / Not for me | `getByRole('button', { name: /^track$/i })` / `/not for me/i` |
 
-**Notes:** Fill inbox to 10+ via prompts in `references/jack-prompts.md`. Inbox fill is the main time sink.
+**Notes:** Fill inbox to 10+ via prompts in [jack-prompts.md](jack-prompts.md). Jack has two surfaces — see [jack-kanban.md](jack-kanban.md).
 
 ## Sourcing defaults
 
@@ -78,4 +84,4 @@ npm run test:access
 | Handshake | 10 per run (2 search terms) | `JOB_LIMIT` |
 | Jack & Jill | 10 | `JOB_LIMIT` |
 
-Scratch output: `sourced-jobs.md` (runtime, gitignored).
+Scratch output: `sourced-jobs.md` at repo root (runtime, gitignored).

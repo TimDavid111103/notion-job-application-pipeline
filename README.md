@@ -1,6 +1,8 @@
 # Notion Job Application Pipeline
 
-Playwright workspace for sourcing jobs from Wobo, Handshake, and Jack & Jill. **Skill assembly is a later step** — for now this repo holds scripts, references, and auth state while we iterate.
+Playwright workspace for sourcing jobs from Wobo, Handshake, and Jack & Jill into the Notion Application Tracker.
+
+**Skill:** attach or invoke [`.cursor/skills/job-aggregators/SKILL.md`](.cursor/skills/job-aggregators/SKILL.md) for the full runbook.
 
 ## Setup
 
@@ -17,11 +19,12 @@ npm run auth:jackjill
 npm run test:access
 ```
 
-## Source jobs (when ready)
+## Source and log
 
 ```bash
-npm run source:all:parallel
+npm run source:all
 npm run log:notion
+# then user-notion MCP add_database_entry per notion-payloads.json
 ```
 
 Scratch output: `sourced-jobs.md` → dedup → Notion Application Tracker.
@@ -29,20 +32,12 @@ Scratch output: `sourced-jobs.md` → dedup → Notion Application Tracker.
 ## Layout
 
 ```
-references/          # Workflow spec, access notes, elimination rules, Notion schema
+.cursor/skills/job-aggregators/   # Skill runbook + references + run logs
 scripts/
-  auth/              # Headed login → .auth/*.json
-  sources/           # Per-aggregator sourcing
-  lib/               # Shared + per-aggregator logic
+  auth/                           # Headed login → .auth/*.json
+  sources/                        # Per-aggregator sourcing
+  lib/                            # Shared + per-aggregator logic
   setup.sh
-.auth/               # Saved sessions (gitignored)
-sourced-jobs.md      # Runtime scratch (gitignored)
+.auth/                            # Saved sessions (gitignored)
+sourced-jobs.md                   # Runtime scratch (gitignored)
 ```
-
-## Docs
-
-- [notes/iteration-one.md](notes/iteration-one.md) — **current iteration status** (start here for context)
-- [references/job-aggregators.md](references/job-aggregators.md) — sourcing workflow spec
-- [references/access.md](references/access.md) — auth URLs, selectors, limits
-- [references/elimination-rules.md](references/elimination-rules.md)
-- [references/notion-schema.md](references/notion-schema.md)

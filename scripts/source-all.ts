@@ -1,28 +1,75 @@
+/**
+ * Orchestrates all three aggregators — resets scratch file, spawns per-aggregator
+ * runners, prints a summary. Set PARALLEL=1 to run concurrently.
+ *
+ * Each child is detached so AGGREGATOR_TIMEOUT_MS can SIGKILL the whole process group
+ * if a browser hangs (common with Wobo/Jack SPAs).
+ */
 import { initScratchFile } from "./lib/scratch.js";
 import { spawn } from "node:child_process";
 
-function run(cmd: string, args: string[]): Promise<number> {
+/** Per-aggregator wall-clock cap (ms). Override with AGGREGATOR_TIMEOUT_MS. */
+const TIMEOUT_MS = parseInt(process.env.AGGREGATOR_TIMEOUT_MS ?? "300000", 10);
+
+interface Result {
+  name: string;
+  code: number;
+  ms: number;
+  timedOut: boolean;
+}
+
+const TSX_BIN = "node_modules/.bin/tsx";
+
+function run(name: string, script: string): Promise<Result> {
   return new Promise((resolve) => {
-    const child = spawn(cmd, args, { stdio: "inherit", shell: true });
-    child.on("close", (code) => resolve(code ?? 1));
+    const t0 = Date.now();
+    // detached: child leads its own process group so we can kill the whole tree
+    // (a plain kill on a shell wrapper leaves the node grandchild running).
+    const child = spawn(TSX_BIN, [script], { stdio: "inherit", detached: true });
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      console.warn(`\n[${name}] exceeded ${TIMEOUT_MS / 1000}s cap — killing.`);
+      try {
+        if (child.pid) process.kill(-child.pid, "SIGKILL");
+      } catch {
+        child.kill("SIGKILL");
+      }
+    }, TIMEOUT_MS);
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      resolve({ name, code: code ?? 1, ms: Date.now() - t0, timedOut });
+    });
   });
 }
 
 async function main(): Promise<void> {
   await initScratchFile();
-  const scripts = ["wobo", "handshake", "jackjill"];
+  // RUN_ID correlates console output with skill run logs (step 9).
+  process.env.RUN_ID = process.env.RUN_ID ?? new Date().toISOString().replace(/[:.]/g, "-");
+  console.log(`Run ID: ${process.env.RUN_ID}`);
 
+  const scripts = ["wobo", "handshake", "jackjill"];
+  const runOne = (s: string) => run(s, `scripts/sources/${s}.ts`);
+
+  let results: Result[];
   if (process.env.PARALLEL === "1") {
-    await Promise.all(
-      scripts.map((s) => run("npx", ["tsx", `scripts/sources/${s}.ts`]))
-    );
+    results = await Promise.all(scripts.map(runOne));
   } else {
+    results = [];
     for (const s of scripts) {
       console.log(`\n--- Running ${s} ---`);
-      await run("npx", ["tsx", `scripts/sources/${s}.ts`]);
+      results.push(await runOne(s));
     }
   }
-  console.log("\nAll aggregators complete. Check sourced-jobs.md");
+
+  console.log("\n=== Sourcing summary ===");
+  for (const r of results) {
+    const status = r.timedOut ? "TIMEOUT" : r.code === 0 ? "ok" : `FAILED (exit ${r.code})`;
+    console.log(`  ${r.name.padEnd(10)} ${status.padEnd(18)} ${(r.ms / 1000).toFixed(1)}s`);
+  }
+  console.log("Check sourced-jobs.md for captured jobs.");
+  process.exit(results.some((r) => r.code !== 0) ? 1 : 0);
 }
 
 main().catch((err) => {

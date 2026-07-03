@@ -1,3 +1,9 @@
+/**
+ * Shared Playwright browser lifecycle — launch, auth state, graceful shutdown.
+ *
+ * Sessions persist in `.auth/{aggregator}.json` and reload on each headless run.
+ * Auth scripts (headed) create/update these files once; sourcing reuses them.
+ */
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -27,6 +33,7 @@ export async function launchBrowser(options: LaunchOptions = {}): Promise<Browse
   console.log(headed ? "Launching headed browser..." : "Launching headless browser...");
 
   try {
+    // Prefer installed Chrome (better SPA compatibility); fall back to bundled Chromium.
     return await chromium.launch({
       channel: "chrome",
       headless: !headed,
@@ -50,12 +57,30 @@ export async function createContext(
   const { existsSync } = await import("node:fs");
   const storageState = stateFile && existsSync(stateFile) ? stateFile : undefined;
 
-  return browser.newContext({
+  const context = await browser.newContext({
     storageState,
     viewport: headed ? null : { width: 1440, height: 900 },
     userAgent:
       "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
   });
+  // tsx/esbuild (keepNames) injects `__name(...)` into page.evaluate'd code, which
+  // isn't defined in the browser. Shim it so evaluate callbacks don't throw.
+  await context.addInitScript(() => {
+    const g = globalThis as unknown as { __name?: (fn: unknown) => unknown };
+    if (!g.__name) g.__name = (fn: unknown) => fn;
+  });
+  return context;
+}
+
+/**
+ * Closes the browser but never hangs — some SPAs (Wobo, Jack) keep CDP busy and
+ * `browser.close()` can block indefinitely, stalling the whole run. Race it.
+ */
+export async function closeBrowser(browser: Browser, ms = 5000): Promise<void> {
+  await Promise.race([
+    browser.close().catch(() => {}),
+    new Promise((resolve) => setTimeout(resolve, ms)),
+  ]);
 }
 
 export async function saveAuthState(page: Page, aggregator: Aggregator): Promise<void> {

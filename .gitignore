@@ -1,10 +1,10 @@
 node_modules/
 .auth/
 dist/
+.probe/
 .playwright-cli/
 .DS_Store
 *.log
 notion-payloads.json
 sourced-jobs.md
-notes/*.png
-notes/*-debug.*
+.cursor/skills/job-aggregators/logs/*.md

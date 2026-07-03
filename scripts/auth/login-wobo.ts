@@ -1,3 +1,7 @@
+/**
+ * Headed one-time login for Wobo — saves session to .auth/wobo.json.
+ * Re-run only when test:access fails or sourcing hits an expired session.
+ */
 import { launchBrowser, createContext, waitForManualLogin } from "../lib/browser.js";
 
 const EMAIL = "30.recess_archaea@icloud.com";

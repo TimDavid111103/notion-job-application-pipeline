@@ -1,3 +1,7 @@
+/**
+ * Headless smoke test — verifies `.auth/*.json` sessions still reach each aggregator.
+ * Run after auth or when a source script fails on login. Exit 1 if any check fails.
+ */
 import { existsSync } from "node:fs";
 import { launchBrowser, createContext, authPath } from "./lib/browser.js";
 import { verifyAccess as verifyHandshake } from "./lib/handshake.js";

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# One-time environment setup: npm deps, Playwright Chromium, .auth/ directory.
 set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"

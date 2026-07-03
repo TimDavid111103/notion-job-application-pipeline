@@ -1,3 +1,7 @@
+/**
+ * Headed one-time login for Handshake — saves session to .auth/handshake.json.
+ * Cloudflare challenge may appear on first login; complete it in the browser.
+ */
 import { launchBrowser, createContext, waitForManualLogin } from "../lib/browser.js";
 
 const HANDSHAKE_JOB_SEARCH = "https://app.joinhandshake.com/job-search";

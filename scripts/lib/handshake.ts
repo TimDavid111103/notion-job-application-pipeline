@@ -1,6 +1,12 @@
+/**
+ * Handshake job-search automation — filter panel + list-scrape (no per-job navigation).
+ *
+ * Jobs are extracted from search results in one pass. List cards are distinguished from
+ * the detail-panel "Similar Jobs" by their "Save {role}" aria-label (not "Save this job").
+ */
 import type { Page } from "playwright";
 import { waitForManualLogin } from "./browser.js";
-import { isHourlyCompensation, shouldEliminate, type SourcedJob } from "./scratch.js";
+import { screeningSignals, type SourcedJob } from "./scratch.js";
 
 export const HANDSHAKE_JOB_SEARCH = "https://app.joinhandshake.com/job-search";
 export const HANDSHAKE_LOGGED_IN = /joinhandshake\.com\/(job-search|jobs\/)/i;
@@ -22,70 +28,105 @@ export async function ensureLoggedIn(page: Page): Promise<void> {
   await page.goto(HANDSHAKE_JOB_SEARCH, { waitUntil: "domcontentloaded" });
   const title = await page.title();
   const body = await page.locator("body").innerText();
+  // Cloudflare interstitial or sign-in page both require headed re-auth.
   if (/just a moment|cloudflare/i.test(title) || /\b(sign in|log in)\b/i.test(body)) {
     console.log("\n[Handshake] Session expired — run npm run auth:handshake.");
     await waitForManualLogin(page, "handshake", HANDSHAKE_LOGGED_IN);
   }
 }
 
+/**
+ * Best-effort filter application. Never throws — if the panel layout shifts we
+ * still fall through to searching (search + elimination is the real filter).
+ * The Apply button is the filters-form submit, disambiguated from the many
+ * per-job "Apply" buttons by its `form` attribute.
+ */
 export async function applyFilters(page: Page): Promise<void> {
-  await page.goto(HANDSHAKE_JOB_SEARCH, { waitUntil: "domcontentloaded" });
-  await page.getByRole("button", { name: /filters/i }).click();
-  await page.waitForTimeout(1000);
+  try {
+    await page.goto(HANDSHAKE_JOB_SEARCH, { waitUntil: "domcontentloaded" });
+    await page.getByRole("button", { name: /^filters$/i }).first().click({ timeout: 5000 });
+    await page.waitForTimeout(800);
 
-  const selectOption = async (label: string, value: RegExp) => {
-    await page.locator(`text=${label}`).locator("..").getByText(value).click().catch(() => {});
-  };
+    const check = async (value: RegExp) => {
+      const opt = page.getByRole("checkbox", { name: value }).first();
+      if (await opt.isVisible({ timeout: 400 }).catch(() => false)) {
+        await opt.check({ timeout: 1500 }).catch(() => {});
+      }
+    };
+    await check(/full-?time/i);
+    await check(/^open to us visa sponsorship$/i);
+    await check(/optional practical training|opt/i);
 
-  await selectOption("Employment type", /full-?time/i);
-  await selectOption("Job type", /^job$/i);
-  await selectOption("Pay and benefits", /paid/i);
-  for (const loc of [/onsite/i, /remote/i, /hybrid/i]) {
-    await selectOption("Onsite/remote", loc).catch(() => {});
+    const apply = page.locator('button[type="submit"][form="job-search-form-advanced-filters"]');
+    if (await apply.isVisible({ timeout: 1000 }).catch(() => false)) {
+      await apply.click({ timeout: 3000 }).catch(() => {});
+    }
+    await page.waitForLoadState("networkidle", { timeout: 8000 }).catch(() => {});
+  } catch (err) {
+    console.log(`Handshake filters skipped: ${(err as Error).message}`);
+    await page.keyboard.press("Escape").catch(() => {});
   }
-  await selectOption("Work authorization", /visa sponsorship/i).catch(() => {});
-  await selectOption("Work authorization", /optional practical training|opt/i).catch(() => {});
-  await page.getByRole("button", { name: /^apply$/i }).click();
-  await page.waitForLoadState("networkidle").catch(() => page.waitForTimeout(1500));
 }
 
+/**
+ * Searches for a term and extracts jobs directly from the results list (no
+ * per-job click/navigation). Role comes from the row's "Save <role>" button
+ * aria-label (reliable); the canonical URL is built from the job id in the href.
+ */
 export async function searchAndCollect(page: Page, term: string, limit: number): Promise<SourcedJob[]> {
   const jobs: SourcedJob[] = [];
   await waitForJobSearchReady(page);
   const searchBox = jobSearchInput(page);
   await searchBox.fill(term);
   await searchBox.press("Enter");
-  await page.waitForLoadState("networkidle").catch(() => page.waitForTimeout(2000));
+  await page
+    .locator('a[href*="/jobs/"]')
+    .first()
+    .waitFor({ state: "visible", timeout: 12000 })
+    .catch(() => {});
+  await page.waitForTimeout(800);
 
-  const jobLinks = page.locator('a[href*="/jobs/"]');
-  const count = Math.min(await jobLinks.count(), limit * 3);
+  // Results-list cards link to /job-search/{id}; the right-hand detail panel's
+  // "Similar Jobs" link to /jobs/{id}. We only want the list, identified by a
+  // card-level "Save <role>" button (the detail/similar buttons say "Save this
+  // job: <role>"), and build the canonical /jobs/{id} URL from the list id.
+  const rows = await page.$$eval('a[href*="/job-search/"]', (links) => {
+    const out: Array<{ jobUrl: string; role: string; text: string }> = [];
+    const seen = new Set<string>();
+    for (const a of links as HTMLAnchorElement[]) {
+      const m = (a.getAttribute("href") || "").match(/\/job-search\/(\d+)/);
+      if (!m) continue;
+      const id = m[1];
+      if (seen.has(id)) continue;
+      const card = (a.closest("li") || a.closest("article") || a.parentElement) as HTMLElement | null;
+      const saveBtn = card?.querySelector(
+        'button[aria-label^="Save "]:not([aria-label*="this job"])'
+      );
+      if (!saveBtn) continue; // not a results-list card (detail/similar/other)
+      seen.add(id);
+      const role = (saveBtn.getAttribute("aria-label") || "").replace(/^Save\s+/i, "").trim();
+      const text = (card?.innerText || a.textContent || "").trim();
+      out.push({ jobUrl: `https://app.joinhandshake.com/jobs/${id}`, role, text });
+    }
+    return out;
+  });
 
-  for (let i = 0; i < count && jobs.length < limit; i++) {
-    const link = jobLinks.nth(i);
-    const listingText = await link.innerText().catch(() => "");
-    const title = listingText.split("\n")[0] ?? "";
-    if (shouldEliminate(title, listingText) || isHourlyCompensation(listingText)) continue;
+  for (const row of rows) {
+    if (jobs.length >= limit) break;
+    const lines = row.text.split("\n").map((l) => l.trim()).filter(Boolean);
+    const role = row.role || lines[1] || lines[0] || "Unknown";
+    // Regex only ALERTS — it never eliminates. Capture and surface flags for agent judgement
+    // (see skill references/job-judgement.md); curation happens before logging to Notion.
+    const flags = screeningSignals(role, row.text);
 
-    await link.click();
-    await page.waitForTimeout(1500);
-    const jobUrl = page.url();
-    if (!jobUrl.includes("/jobs/")) continue;
+    const company =
+      lines.find(
+        (l) => l !== role && !/\$|\/yr|\/hr|full-?time|part-?time|remote|hybrid|onsite|^new$|posted/i.test(l)
+      ) ?? "Unknown";
+    const location = lines.find((l) => /remote|hybrid|onsite|,\s*[A-Z]{2}\b/i.test(l)) ?? "";
 
-    const panelText = await page.locator("main, [role='main']").innerText().catch(() => listingText);
-    if (shouldEliminate(title, panelText) || isHourlyCompensation(panelText)) continue;
-
-    const moreBtn = page.getByRole("button", { name: /^more$/i });
-    if (await moreBtn.isVisible({ timeout: 500 }).catch(() => false)) await moreBtn.click();
-
-    const lines = listingText.split("\n").map((l) => l.trim()).filter(Boolean);
-    jobs.push({
-      company: lines[1] ?? "Unknown",
-      role: lines[0] ?? "Unknown",
-      jobUrl,
-      source: "Handshake",
-      location: lines.find((l) => /remote|hybrid|onsite|, [A-Z]{2}/i.test(l)) ?? "",
-    });
-    console.log(`Captured: ${lines[1]} — ${lines[0]}`);
+    jobs.push({ company, role, jobUrl: row.jobUrl, source: "Handshake", location });
+    console.log(`Captured: ${company} — ${role}${flags.length ? `  ⚠ [review] ${flags.join(", ")}` : ""}`);
   }
   return jobs;
 }
