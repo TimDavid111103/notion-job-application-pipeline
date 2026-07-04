@@ -1,7 +1,7 @@
 # Job Judgement
 
 The final keep/reject decision is **yours to make with judgement**, not a keyword match.
-Hardcoded regex (`screeningSignals` in repo `scripts/lib/scratch.ts`) exists only to **flag things
+Hardcoded regex (`screeningSignals` in repo `scripts/lib/screening.ts`) exists only to **flag things
 worth a second look** — it never eliminates a job on its own. Read the posting, weigh it against
 the candidate profile below, and decide.
 

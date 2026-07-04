@@ -40,5 +40,12 @@ MeritFirst under both `/job-search/11147594` and `/jobs/11147594`.
 { "database_id": "32f1de14-69d8-803a-81ba-fb8cf47a1ccd" }
 ```
 
-Implementation: `dedupeAgainstNotion`, `NOTION_DEDUP_FILTER = {}` in repo `scripts/lib/notion.ts`.
-See [pipeline-scripts.md](pipeline-scripts.md) for payload shape.
+Omit `filter` entirely — do not pass `filter: {}` (MCP rejects an empty object).
+
+Implementation: `dedupeAgainstNotion`, `parseNotionQueryResults` in repo `scripts/lib/notion.ts`.
+
+**MCP snapshot shape:** `user-notion` `query_database` returns flat strings on each row
+(`Company`, `Role`, `Job URL`) — not nested `properties.*.rich_text`. `parseNotionQueryResults`
+handles both MCP and raw Notion API shapes.
+
+**Script path:** `npm run log:notion:deduped` after saving snapshot. Payload shape: [data-contracts.md](data-contracts.md).

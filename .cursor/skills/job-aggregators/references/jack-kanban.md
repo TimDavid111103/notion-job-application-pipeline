@@ -4,8 +4,7 @@ Goal (per day): leave **both** the Jack inbox **and** the Jobs-tab "Saved" colum
 completely empty — every good job moved to `sourced-jobs.md`, everything else
 archived / skipped — so nothing carries over day-to-day.
 
-Runner (repo root): `tsx scripts/sources/jack-empty.ts` → `emptySavedColumn` + `reviewInbox`
-(both in `scripts/lib/jackjill.ts`). Env: see [env-vars.md](env-vars.md).
+Runner: `npx tsx scripts/sources/jack-empty.ts` → `scripts/lib/jack/inbox.ts` + `scripts/lib/jack/kanban.ts`
 
 ## The two surfaces (important mental model)
 
@@ -23,8 +22,7 @@ Key relationships:
 - **Tracking an inbox job moves it into the "Saved" column.** Daily order: inbox first
   (Track good / reject bad) → then empty Saved (archives everything, capturing keepers).
   Tracked jobs may be captured twice; scratch-file strict dedup collapses them.
-- **Duplicates exist between inbox and Saved** — dedup (normalized URL / company+role in
-  `scratch.ts` `jobKey`) makes this safe.
+- **Duplicates exist between inbox and Saved** — `jobKey` in `scripts/lib/job.ts` / scratch dedup handles overlap.
 
 ## Daily flow
 
@@ -36,7 +34,7 @@ Key relationships:
    card → open it → expand **right-pane** "Show details" → read role/company/URL →
    judge → if keep, collect for the scratch file → open the status control → **Archive**
    → return to the board. Repeat until the column is 0.
-3. Append all keepers via `appendJobs` (strict dedup, never double-counts).
+3. Prepend keepers via `appendJobs` (strict dedup, newest at top).
 
 ## Selectors / DOM facts
 

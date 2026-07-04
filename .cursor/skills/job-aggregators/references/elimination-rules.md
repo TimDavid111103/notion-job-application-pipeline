@@ -4,7 +4,7 @@
 > step. The pipeline's job is to find postings and get them into Notion fast. **When in doubt,
 > keep the role.**
 
-Hardcoded regex (`screeningSignals` in repo `scripts/lib/scratch.ts`) only prints optional `⚠`
+Hardcoded regex (`screeningSignals` in repo `scripts/lib/screening.ts`) only prints optional `⚠`
 alerts for the items below; it **never** eliminates a job. For borderline cases or Saved-kanban
 curation, see [job-judgement.md](job-judgement.md).
 

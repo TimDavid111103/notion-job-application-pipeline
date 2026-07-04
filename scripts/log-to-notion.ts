@@ -1,8 +1,8 @@
 /**
  * Reads sourced-jobs.md and writes notion-payloads.json for MCP logging.
  *
- * Notion dedup happens in the skill runbook (agent queries tracker, filters jobs,
- * then runs this script on the surviving set). This script formats payloads only.
+ * Does NOT dedupe against Notion. For normal skill runs use log-to-notion-deduped.ts
+ * (`npm run log:notion:deduped`) with notion-tracker-snapshot.json from query_database.
  */
 import { readFile, writeFile } from "node:fs/promises";
 import { SCRATCH_FILE, parseScratchFile } from "./lib/scratch.js";

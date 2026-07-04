@@ -1,21 +1,15 @@
-# Aggregator Access Reference
+# Aggregator Access
 
-Auth is one-time per aggregator. Sessions live in repo `.auth/{wobo,handshake,jackjill}.json`.
-Sourcing runs **headless** by default (`HEADED=1` for debug). Run all commands from **repo root**.
+Auth, URLs, and selectors. Commands: [commands.md](commands.md). Job limits: [env-vars.md](env-vars.md).
 
-## Auth (headed, one-time — fallback only)
+Sessions: `.auth/{wobo,handshake,jackjill}.json`. Default: **headless** (`HEADED=1` to debug).
 
-Normal runs reuse saved sessions. Re-auth only when a source script hits a login or expired session:
+## Auth (fallback only)
 
 ```bash
 npm run auth:wobo        # email: 30.recess_archaea@icloud.com
-npm run auth:handshake   # school credentials; pass Cloudflare if prompted
+npm run auth:handshake   # school credentials; Cloudflare if prompted
 npm run auth:jackjill    # email: tim.david1111@gmail.com; verification code
-```
-
-Verify all sessions:
-
-```bash
 npm run test:access
 ```
 
@@ -23,65 +17,32 @@ npm run test:access
 
 | Item | Value |
 |---|---|
-| Post-login URL | `https://www.wobo.ai/dashboard` |
-| Feed location | Dashboard (not `/feed` — that URL 404s) |
-| Auth file | `.auth/wobo.json` |
-| Runner | `npm run source:wobo` → `scripts/sources/wobo.ts` |
-
-**Selectors**
-
-| Element | Selector |
-|---|---|
+| URL | `https://www.wobo.ai/dashboard` (not `/feed`) |
+| Auth | `.auth/wobo.json` |
 | View original | `getByRole('link', { name: /view original/i })` |
-| Save / Decline | `getByRole('button', { name: /^save$/i })` / `/^decline$/i` |
-| Feed ready | Save button visible |
-| Caught up | text matching `/all caught up\|no more matches/i` |
+| Save / Decline | Card-footer only — `feedActionButton()` → `.last()` |
+| Caught up | `/all caught up\|no more matches/i` |
 
-**Notes:** SwipeCard overlay blocks normal clicks — use `click({ force: true })`. Batch-scrape visible cards before click-advance loop.
+Sticky header Save/Decline do **not** advance. Keyboard `s` / `a` fallback. Force-click for SwipeCard overlay.
 
 ## Handshake
 
 | Item | Value |
 |---|---|
-| Post-login URL | `https://app.joinhandshake.com/job-search` |
-| Auth file | `.auth/handshake.json` |
-| Runner | `npm run source:handshake` → `scripts/sources/handshake.ts` |
-
-**Selectors**
-
-| Element | Selector |
-|---|---|
-| Job search | `input[name="query"]` (placeholder: "Describe a job you want") |
+| URL | `https://app.joinhandshake.com/job-search` |
+| Auth | `.auth/handshake.json` |
+| Search | `input[name="query"]` |
 | Filters | `getByRole('button', { name: /filters/i })` |
-| Job links | `a[href*="/jobs/"]` |
 
-**Notes:** Headed login required once for Cloudflare. Do not use `role=combobox` or `placeholder*="Search"` for the main search input.
+Do not use `role=combobox` or `placeholder*="Search"` for main search. Headed login once for Cloudflare.
 
 ## Jack & Jill
 
 | Item | Value |
 |---|---|
-| Post-login URL | `https://app.jackandjill.ai/jack/dashboard/inbox` |
-| Auth file | `.auth/jackjill.json` |
-| Runners | `npm run source:jackjill` → `scripts/sources/jackjill.ts`; daily clean-out → `tsx scripts/sources/jack-empty.ts` |
+| Inbox | `https://app.jackandjill.ai/jack/dashboard/inbox` |
+| Kanban | `https://app.jackandjill.ai/jack/dashboard/jobs/kanban` |
+| Auth | `.auth/jackjill.json` |
+| Inbox selectors | Review job, View job post, Track, Not for me |
 
-**Selectors**
-
-| Element | Selector |
-|---|---|
-| Chat input | `getByPlaceholder(/message\|ask\|search/i)` or `textarea` |
-| Review job | `getByRole('button', { name: /review job/i })` |
-| View job post | `getByRole('link', { name: /view job post/i })` — href is Job URL, not `?review=` |
-| Track / Not for me | `getByRole('button', { name: /^track$/i })` / `/not for me/i` |
-
-**Notes:** Fill inbox to 10+ via prompts in [jack-prompts.md](jack-prompts.md). Jack has two surfaces — see [jack-kanban.md](jack-kanban.md).
-
-## Sourcing defaults
-
-| Aggregator | Default job limit | Env override |
-|---|---|---|
-| Wobo | 30 (until caught up) | `JOB_LIMIT` |
-| Handshake | 10 per run (2 search terms) | `JOB_LIMIT` |
-| Jack & Jill | 10 | `JOB_LIMIT` |
-
-Scratch output: `sourced-jobs.md` at repo root (runtime, gitignored).
+Kanban selectors and clean-out flow: [jack-kanban.md](jack-kanban.md). Prompts: [jack-prompts.md](jack-prompts.md).

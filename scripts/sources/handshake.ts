@@ -9,11 +9,14 @@ import {
   searchAndCollect,
   SEARCH_TERMS,
 } from "../lib/handshake.js";
-import { appendJobs, dedupeWithinSource, getJobLimit, type SourcedJob } from "../lib/scratch.js";
+import { appendJobs, dedupeWithinSource, loadScratchKeys } from "../lib/scratch.js";
+import { getJobLimit } from "../lib/limits.js";
+import type { SourcedJob } from "../lib/job.js";
 
 async function main(): Promise<void> {
   const limit = getJobLimit("handshake");
   const headed = process.env.HEADED === "1";
+  const scratchKeys = await loadScratchKeys();
   const browser = await launchBrowser({ headed, aggregator: "handshake" });
   const page = await (await createContext(browser, "handshake", headed)).newPage();
   const allJobs: SourcedJob[] = [];
@@ -24,7 +27,7 @@ async function main(): Promise<void> {
 
     for (const term of SEARCH_TERMS) {
       if (allJobs.length >= limit) break;
-      const batch = await searchAndCollect(page, term, limit - allJobs.length);
+      const batch = await searchAndCollect(page, term, limit - allJobs.length, scratchKeys);
       allJobs.push(...batch);
       console.log(`Handshake "${term}": ${batch.length} jobs`);
     }

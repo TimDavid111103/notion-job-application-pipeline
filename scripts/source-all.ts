@@ -1,15 +1,28 @@
 /**
- * Orchestrates all three aggregators — resets scratch file, spawns per-aggregator
+ * Orchestrates all three aggregators — ensures scratch file, spawns per-aggregator
  * runners, prints a summary. Set PARALLEL=1 to run concurrently.
  *
  * Each child is detached so AGGREGATOR_TIMEOUT_MS can SIGKILL the whole process group
  * if a browser hangs (common with Wobo/Jack SPAs).
  */
-import { initScratchFile } from "./lib/scratch.js";
+import { ensureScratchFile } from "./lib/scratch.js";
 import { spawn } from "node:child_process";
 
-/** Per-aggregator wall-clock cap (ms). Override with AGGREGATOR_TIMEOUT_MS. */
-const TIMEOUT_MS = parseInt(process.env.AGGREGATOR_TIMEOUT_MS ?? "300000", 10);
+/** Default per-aggregator wall-clock cap (ms). Override with AGGREGATOR_TIMEOUT_MS. */
+const DEFAULT_TIMEOUT_MS = parseInt(process.env.AGGREGATOR_TIMEOUT_MS ?? "300000", 10);
+
+/** Jack inbox fill + review needs more time than Wobo/Handshake. */
+const JACK_TIMEOUT_MS = (() => {
+  const raw = process.env.JACK_TIMEOUT_MS ?? process.env.JACK_TIMEOUT ?? "600000";
+  const n = parseInt(raw, 10);
+  return Number.isFinite(n) && n > 0 ? n : 600_000;
+})();
+
+const TIMEOUT_BY_SCRIPT: Record<string, number> = {
+  wobo: DEFAULT_TIMEOUT_MS,
+  handshake: DEFAULT_TIMEOUT_MS,
+  jackjill: JACK_TIMEOUT_MS,
+};
 
 interface Result {
   name: string;
@@ -23,19 +36,20 @@ const TSX_BIN = "node_modules/.bin/tsx";
 function run(name: string, script: string): Promise<Result> {
   return new Promise((resolve) => {
     const t0 = Date.now();
+    const timeoutMs = TIMEOUT_BY_SCRIPT[name] ?? DEFAULT_TIMEOUT_MS;
     // detached: child leads its own process group so we can kill the whole tree
     // (a plain kill on a shell wrapper leaves the node grandchild running).
     const child = spawn(TSX_BIN, [script], { stdio: "inherit", detached: true });
     let timedOut = false;
     const timer = setTimeout(() => {
       timedOut = true;
-      console.warn(`\n[${name}] exceeded ${TIMEOUT_MS / 1000}s cap — killing.`);
+      console.warn(`\n[${name}] exceeded ${timeoutMs / 1000}s cap — killing.`);
       try {
         if (child.pid) process.kill(-child.pid, "SIGKILL");
       } catch {
         child.kill("SIGKILL");
       }
-    }, TIMEOUT_MS);
+    }, timeoutMs);
     child.on("close", (code) => {
       clearTimeout(timer);
       resolve({ name, code: code ?? 1, ms: Date.now() - t0, timedOut });
@@ -44,7 +58,10 @@ function run(name: string, script: string): Promise<Result> {
 }
 
 async function main(): Promise<void> {
-  await initScratchFile();
+  const { existing, pruned } = await ensureScratchFile();
+  if (existing > 0) {
+    console.log(`Scratch file: ${existing} prior job(s)${pruned ? ` (${pruned} duplicate(s) pruned)` : ""}`);
+  }
   // RUN_ID correlates console output with skill run logs (step 9).
   process.env.RUN_ID = process.env.RUN_ID ?? new Date().toISOString().replace(/[:.]/g, "-");
   console.log(`Run ID: ${process.env.RUN_ID}`);

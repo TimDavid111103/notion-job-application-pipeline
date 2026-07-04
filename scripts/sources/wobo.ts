@@ -1,6 +1,6 @@
 /**
- * Wobo sourcing entry point — dashboard swipe cards until caught up or JOB_LIMIT.
- * Appends to sourced-jobs.md via appendJobs (strict cross-file dedup).
+ * Wobo sourcing entry point — dashboard swipe cards until caught up or JOB_LIMIT
+ * new jobs. Skips postings already in sourced-jobs.md (still advances the feed).
  */
 import { launchBrowser, createContext, saveAuthState, closeBrowser } from "../lib/browser.js";
 import {
@@ -8,17 +8,29 @@ import {
   dismissAutopilot,
   isCaughtUp,
   openDashboard,
+  readCardFingerprint,
   readCurrentCard,
   waitForFeedReady,
+  type CardFingerprint,
 } from "../lib/wobo.js";
-import { appendJobs, dedupeWithinSource, getJobLimit, type SourcedJob } from "../lib/scratch.js";
+import {
+  appendJobs,
+  dedupeWithinSource,
+  isScratchDuplicate,
+  loadScratchKeys,
+} from "../lib/scratch.js";
+import { jobKey } from "../lib/job.js";
+import { getJobLimit } from "../lib/limits.js";
+import type { SourcedJob } from "../lib/job.js";
 
 async function main(): Promise<void> {
   const limit = getJobLimit("wobo");
   const headed = process.env.HEADED === "1";
+  const scratchKeys = await loadScratchKeys();
   const browser = await launchBrowser({ headed, aggregator: "wobo" });
   const page = await (await createContext(browser, "wobo", headed)).newPage();
   const jobs: SourcedJob[] = [];
+  let scratchSkipped = 0;
 
   try {
     await openDashboard(page);
@@ -28,42 +40,75 @@ async function main(): Promise<void> {
     let stalls = 0;
     while (jobs.length < limit) {
       if (await isCaughtUp(page)) {
-        console.log("Wobo: caught up — no more matches");
+        console.log("Wobo: all caught up for today (normal stop)");
         break;
       }
       await dismissAutopilot(page);
+      const fp = await readCardFingerprint(page);
       const { jobUrl, job } = await readCurrentCard(page);
+      const card: CardFingerprint = jobUrl
+        ? { jobUrl, role: fp.role, company: fp.company }
+        : fp;
 
-      if (jobUrl && !seen.has(jobUrl)) {
-        seen.add(jobUrl);
-        if (job) {
-          jobs.push(job);
-          console.log(`Captured (${jobs.length}/${limit}): ${job.company} — ${job.role}`);
-        } else {
-          console.log(`Skipped (eliminated): ${jobUrl}`);
-        }
-        const advanced = await advanceCard(page, job ? "save" : "decline", jobUrl);
+      if (!jobUrl || jobUrl === "#") {
+        const advanced = await advanceCard(page, "decline", card);
         if (!advanced) {
           stalls++;
-          if (stalls >= 2) {
+          if (stalls >= 3) {
             console.log("Wobo: card not advancing — stopping");
             break;
           }
         } else {
           stalls = 0;
+        }
+        continue;
+      }
+
+      const key = jobKey({ jobUrl, company: fp.company, role: fp.role });
+      if (seen.has(key)) {
+        const advanced = await advanceCard(page, "save", card);
+        if (!advanced) {
+          stalls++;
+          if (stalls >= 3) {
+            console.log("Wobo: card not advancing — stopping");
+            break;
+          }
+        } else {
+          stalls = 0;
+        }
+        continue;
+      }
+      seen.add(key);
+
+      if (job && isScratchDuplicate(job, scratchKeys)) {
+        scratchSkipped++;
+        console.log(`Skipped (already in scratch): ${job.company} — ${job.role}`);
+        const advanced = await advanceCard(page, "save", card);
+        if (!advanced) {
+          stalls++;
+          if (stalls >= 3) {
+            console.log("Wobo: card not advancing — stopping");
+            break;
+          }
+        } else {
+          stalls = 0;
+        }
+        continue;
+      }
+
+      if (job) {
+        jobs.push(job);
+        console.log(`Captured (${jobs.length}/${limit}): ${job.company} — ${job.role}`);
+      }
+      const advanced = await advanceCard(page, job ? "save" : "decline", card);
+      if (!advanced) {
+        stalls++;
+        if (stalls >= 3) {
+          console.log("Wobo: card not advancing — stopping");
+          break;
         }
       } else {
-        // Same card still showing (duplicate href or slow render) — nudge Save to advance.
-        const advanced = await advanceCard(page, "save", jobUrl ?? "");
-        if (!advanced) {
-          stalls++;
-          if (stalls >= 2) {
-            console.log("Wobo: card not advancing — stopping");
-            break;
-          }
-        } else {
-          stalls = 0;
-        }
+        stalls = 0;
       }
     }
   } finally {
@@ -71,7 +116,10 @@ async function main(): Promise<void> {
     await appendJobs(deduped).catch((e) => console.error("Wobo append failed:", e));
     await saveAuthState(page, "wobo").catch(() => {});
     await closeBrowser(browser);
-    console.log(`Wobo complete: ${deduped.length} jobs`);
+    console.log(
+      `Wobo complete: ${deduped.length} new job(s)` +
+        (scratchSkipped ? `, ${scratchSkipped} skipped (already in scratch)` : "")
+    );
   }
 }
 

@@ -14,7 +14,9 @@
     "source:jackjill": "tsx scripts/sources/jackjill.ts",
     "source:all": "tsx scripts/source-all.ts",
     "source:all:parallel": "PARALLEL=1 tsx scripts/source-all.ts",
-    "log:notion": "tsx scripts/log-to-notion.ts"
+    "log:notion": "tsx scripts/log-to-notion.ts",
+    "log:notion:deduped": "tsx scripts/log-to-notion-deduped.ts",
+    "test:notion-dedup": "tsx scripts/test-notion-dedup.ts"
   },
   "dependencies": {
     "playwright": "^1.52.0"

@@ -42,8 +42,9 @@ help improve the skill.
 | Handshake sourced | |
 | Jack & Jill sourced | |
 | Jack clean-out (inbox + Saved) | |
-| Scratch total rows | |
-| Scratch dedup skipped | |
+| Scratch total rows | (cumulative in file) |
+| Scratch new this run | |
+| Scratch dedup skipped | (during sourcing + at append) |
 | Notion dedup dropped | |
 | Logged to Notion | |
 
@@ -59,8 +60,8 @@ Brief notes on what happened at each phase. Only include phases that ran.
 ### 1 — Setup
 (skipped / first-time setup)
 
-### 2 — Scratch init
-(header created, prior file state)
+### 2 — Scratch ensure
+(prior row count, duplicates pruned, date header updated)
 
 ### 3 — Source
 (per-aggregator: duration, stop condition hit, surprises)
@@ -93,9 +94,7 @@ Review friction, confusion, or failures against the skill files (`SKILL.md`,
 - `references/access.md` (auth, selectors)
 - `references/jack-kanban.md` / `references/jack-prompts.md`
 - `references/elimination-rules.md` / `references/job-judgement.md`
-- `references/notion-schema.md` / `references/pipeline-scripts.md`
-- `references/env-vars.md`
-- Repo scripts (`scripts/sources/*`, `scripts/lib/*`)
+- Repo scripts — [scripts-map.md](scripts-map.md), [commands.md](commands.md)
 
 **What worked well:** (optional — steps or references that were clear and effective)
 

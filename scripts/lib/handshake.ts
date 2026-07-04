@@ -6,7 +6,9 @@
  */
 import type { Page } from "playwright";
 import { waitForManualLogin } from "./browser.js";
-import { screeningSignals, type SourcedJob } from "./scratch.js";
+import { screeningSignals } from "./screening.js";
+import { isScratchDuplicate } from "./scratch.js";
+import type { SourcedJob } from "./job.js";
 
 export const HANDSHAKE_JOB_SEARCH = "https://app.joinhandshake.com/job-search";
 export const HANDSHAKE_LOGGED_IN = /joinhandshake\.com\/(job-search|jobs\/)/i;
@@ -73,8 +75,14 @@ export async function applyFilters(page: Page): Promise<void> {
  * per-job click/navigation). Role comes from the row's "Save <role>" button
  * aria-label (reliable); the canonical URL is built from the job id in the href.
  */
-export async function searchAndCollect(page: Page, term: string, limit: number): Promise<SourcedJob[]> {
+export async function searchAndCollect(
+  page: Page,
+  term: string,
+  limit: number,
+  scratchKeys: Set<string> = new Set()
+): Promise<SourcedJob[]> {
   const jobs: SourcedJob[] = [];
+  let scratchSkipped = 0;
   await waitForJobSearchReady(page);
   const searchBox = jobSearchInput(page);
   await searchBox.fill(term);
@@ -115,19 +123,30 @@ export async function searchAndCollect(page: Page, term: string, limit: number):
     if (jobs.length >= limit) break;
     const lines = row.text.split("\n").map((l) => l.trim()).filter(Boolean);
     const role = row.role || lines[1] || lines[0] || "Unknown";
-    // Regex only ALERTS — it never eliminates. Capture and surface flags for agent judgement
-    // (see skill references/job-judgement.md); curation happens before logging to Notion.
-    const flags = screeningSignals(role, row.text);
-
     const company =
       lines.find(
         (l) => l !== role && !/\$|\/yr|\/hr|full-?time|part-?time|remote|hybrid|onsite|^new$|posted/i.test(l)
       ) ?? "Unknown";
     const location = lines.find((l) => /remote|hybrid|onsite|,\s*[A-Z]{2}\b/i.test(l)) ?? "";
+    const candidate: SourcedJob = {
+      company,
+      role,
+      jobUrl: row.jobUrl,
+      source: "Handshake",
+      location,
+    };
+    if (isScratchDuplicate(candidate, scratchKeys)) {
+      scratchSkipped++;
+      continue;
+    }
+    // Regex only ALERTS — it never eliminates. Capture and surface flags for agent judgement
+    // (see skill references/job-judgement.md); curation happens before logging to Notion.
+    const flags = screeningSignals(role, row.text);
 
-    jobs.push({ company, role, jobUrl: row.jobUrl, source: "Handshake", location });
+    jobs.push(candidate);
     console.log(`Captured: ${company} — ${role}${flags.length ? `  ⚠ [review] ${flags.join(", ")}` : ""}`);
   }
+  if (scratchSkipped) console.log(`Handshake "${term}": skipped ${scratchSkipped} already in scratch`);
   return jobs;
 }
 

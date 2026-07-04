@@ -6,7 +6,9 @@
  */
 import type { Page } from "playwright";
 import { waitForManualLogin } from "./browser.js";
-import { screeningSignals, type SourcedJob } from "./scratch.js";
+import { screeningSignals } from "./screening.js";
+import type { SourcedJob } from "./job.js";
+import { normalizeJobUrl } from "./job.js";
 
 export const WOBO_DASHBOARD = "https://www.wobo.ai/dashboard";
 export const WOBO_LOGGED_IN = /wobo\.ai\/dashboard/i;
@@ -43,10 +45,61 @@ export async function dismissAutopilot(page: Page): Promise<void> {
 }
 
 /**
+ * Wobo renders duplicate Save/Decline pairs: a sticky header (top) and the real card
+ * actions (bottom). Only the bottom pair advances the swipe feed — `.first()` clicks
+ * the sticky header and silently no-ops.
+ */
+export function feedActionButton(page: Page, action: "save" | "decline") {
+  const name = action === "save" ? /^save$/i : /^decline$/i;
+  const buttons = page.getByRole("button", { name }).and(page.locator(":visible"));
+  return buttons.last();
+}
+
+async function triggerFeedAction(page: Page, action: "save" | "decline"): Promise<void> {
+  const btn = feedActionButton(page, action);
+  await btn.waitFor({ state: "visible", timeout: 8000 }).catch(() => {});
+  const clicked = await btn.click({ force: true, timeout: 5000 }).then(() => true).catch(() => false);
+  if (!clicked) {
+    await page.keyboard.press(action === "save" ? "s" : "a").catch(() => {});
+  }
+}
+
+export interface CardFingerprint {
+  jobUrl: string;
+  role: string;
+  company: string;
+}
+
+function normUrl(url: string): string {
+  return normalizeJobUrl(url);
+}
+
+/** Identity of the visible swipe card — used for advance detection and scratch dedup. */
+export async function readCardFingerprint(page: Page): Promise<CardFingerprint> {
+  const data = await page.evaluate(() => {
+    const txt = (el: Element | null | undefined) => (el?.textContent || "").trim();
+    const vo = Array.from(document.querySelectorAll("a")).find((a) =>
+      /view original/i.test(a.textContent || "")
+    ) as HTMLAnchorElement | null;
+    let card: HTMLElement | null = vo;
+    for (let i = 0; i < 8 && card; i++) {
+      if (card.className && /overflow-y-auto|rounded/.test(String(card.className))) break;
+      card = card.parentElement;
+    }
+    const scope: ParentNode = card ?? document;
+    const logo =
+      (scope.querySelector('img[src*="company-logos"]') as HTMLImageElement | null) ??
+      (scope.querySelector("img[alt]") as HTMLImageElement | null);
+    const company = (logo?.getAttribute("alt") || "").trim();
+    const role = txt(scope.querySelector("h3"));
+    const jobUrl = vo?.getAttribute("href") || "";
+    return { company, role, jobUrl };
+  });
+  return data;
+}
+/**
  * Reads the currently-visible swipe card via DOM-scoped selectors.
- * Wobo shows ONE card at a time (duplicated for responsive layouts), so we read
- * the first instance of each field. `jobUrl` doubles as the card's identity for
- * advance detection.
+ * Wobo shows ONE card at a time; `jobUrl` doubles as the card's identity for advance detection.
  */
 export async function readCurrentCard(
   page: Page
@@ -103,30 +156,69 @@ export async function readCurrentCard(
  * href differs) or the caught-up state to appear. Returns false if it stalled —
  * the caller uses this to stop re-scraping the same card.
  */
-export async function advanceCard(page: Page, action: "save" | "decline", prevUrl: string): Promise<boolean> {
-  const name = action === "save" ? /^save$/i : /^decline$/i;
-  const btn = page.getByRole("button", { name }).and(page.locator(":visible")).first();
-  const clicked = await btn.click({ force: true, timeout: 5000 }).then(() => true).catch(() => false);
-  if (!clicked) {
-    await page.keyboard.press(action === "save" ? "s" : "a").catch(() => {});
-  }
+async function waitForCardChange(page: Page, prev: CardFingerprint, timeoutMs: number): Promise<boolean> {
   try {
     await page.waitForFunction(
-      (prev) => {
+      (p) => {
         const vo = Array.from(document.querySelectorAll("a")).find((a) =>
           /view original/i.test(a.textContent || "")
         );
-        const cur = vo?.getAttribute("href") || "";
+        const curUrl = vo?.getAttribute("href") || "";
+        let card: HTMLElement | null = vo as HTMLElement | null;
+        for (let i = 0; i < 8 && card; i++) {
+          if (card.className && /overflow-y-auto|rounded/.test(String(card.className))) break;
+          card = card.parentElement;
+        }
+        const scope: ParentNode = card ?? document;
+        const role = ((scope.querySelector("h3")?.textContent || "") as string).trim();
+        const norm = (u: string) => {
+          if (!u) return "";
+          try {
+            const x = new URL(u);
+            return `${x.protocol}//${x.hostname}${x.pathname.replace(/\/+$/, "")}`.toLowerCase();
+          } catch {
+            return u.split(/[?#]/)[0].replace(/\/+$/, "").toLowerCase();
+          }
+        };
         const caughtUp = /all caught up|no more matches/i.test(document.body.innerText);
-        return caughtUp || (!!cur && cur !== prev);
+        const urlChanged = !!curUrl && norm(curUrl) !== norm(p.jobUrl);
+        const roleChanged = !!role && !!p.role && role !== p.role;
+        return caughtUp || urlChanged || roleChanged;
       },
-      prevUrl,
-      { timeout: 8000 }
+      prev,
+      { timeout: timeoutMs }
     );
     return true;
   } catch {
     return false;
   }
+}
+
+export async function advanceCard(page: Page, action: "save" | "decline", prev: CardFingerprint): Promise<boolean> {
+  const prevUrl = prev.jobUrl;
+  await triggerFeedAction(page, action);
+  await page.waitForTimeout(400);
+  if (await waitForCardChange(page, prev, 12_000)) return true;
+
+  // Keyboard shortcut often works when the wrong (sticky) button was focused.
+  await page.keyboard.press(action === "save" ? "s" : "a").catch(() => {});
+  await page.waitForTimeout(400);
+  if (await waitForCardChange(page, prev, 8_000)) return true;
+
+  // Recovery: overlays, then retry the card-footer button.
+  await dismissAutopilot(page);
+  await triggerFeedAction(page, action);
+  if (await waitForCardChange(page, prev, 15_000)) return true;
+
+  const fp = await readCardFingerprint(page);
+  if (fp.jobUrl && normUrl(fp.jobUrl) === normUrl(prevUrl) && fp.role === prev.role) {
+    console.log("  [Wobo] card stuck — reloading dashboard");
+    await page.goto(WOBO_DASHBOARD, { waitUntil: "domcontentloaded" });
+    await waitForFeedReady(page);
+    const after = await readCardFingerprint(page);
+    return normUrl(after.jobUrl) !== normUrl(prevUrl) || after.role !== prev.role;
+  }
+  return false;
 }
 
 /** Headless access check */
