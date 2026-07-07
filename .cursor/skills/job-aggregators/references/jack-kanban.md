@@ -1,7 +1,7 @@
 # Jack & Jill — Inbox + Jobs-tab daily clean-out
 
 Goal (per day): leave **both** the Jack inbox **and** the Jobs-tab "Saved" column
-completely empty — every good job moved to `sourced-jobs.md`, everything else
+completely empty — every good job moved to `data/sourced-jobs.md`, everything else
 archived / skipped — so nothing carries over day-to-day.
 
 Runner: `npx tsx scripts/sources/jack-empty.ts` → `scripts/lib/jack/inbox.ts` + `scripts/lib/jack/kanban.ts`

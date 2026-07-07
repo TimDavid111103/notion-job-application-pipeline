@@ -1,5 +1,5 @@
 /**
- * Scratch file I/O for `sourced-jobs.md` — job table at repo root.
+ * Scratch file I/O for `data/sourced-jobs.md`.
  *
  * New rows are prepended (newest at top). Each row has a `Date` column (sourced-on date).
  *
@@ -7,15 +7,14 @@
  * 1. During sourcing — `loadScratchKeys()` + `isScratchDuplicate()` in aggregator runners.
  * 2. At write — `appendJobs()` via `jobKey()` (prepends only fresh keys).
  */
+import { mkdir } from "node:fs/promises";
 import { readFile, writeFile } from "node:fs/promises";
-import path from "node:path";
-import { REPO_ROOT } from "./browser.js";
 import { dedupeJobList, jobKey, type SourcedJob } from "./job.js";
+import { DATA_DIR, SCRATCH_FILE } from "./paths.js";
 
 export type { SourcedJob } from "./job.js";
 export { jobKey } from "./job.js";
-
-export const SCRATCH_FILE = path.join(REPO_ROOT, "sourced-jobs.md");
+export { SCRATCH_FILE } from "./paths.js";
 
 const TABLE_HEADER =
   "| Date | Company | Role | Job URL | Source | Location |\n|---|---|---|---|---|---|\n";
@@ -45,6 +44,7 @@ export function formatRow(job: SourcedJob): string {
 }
 
 async function writeScratchTable(jobs: SourcedJob[]): Promise<void> {
+  await mkdir(DATA_DIR, { recursive: true });
   const dateLine = `# Sourced Jobs - ${todayIso()}`;
   const rows = sortNewestFirst(jobs).map(formatRow).join("\n");
   const body = rows ? `${rows}\n` : "";

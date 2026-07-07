@@ -5,8 +5,8 @@
  * Each child is detached so AGGREGATOR_TIMEOUT_MS can SIGKILL the whole process group
  * if a browser hangs (common with Wobo/Jack SPAs).
  */
-import { ensureScratchFile } from "./lib/scratch.js";
 import { spawn } from "node:child_process";
+import { ensureScratchFile } from "../lib/scratch.js";
 
 /** Default per-aggregator wall-clock cap (ms). Override with AGGREGATOR_TIMEOUT_MS. */
 const DEFAULT_TIMEOUT_MS = parseInt(process.env.AGGREGATOR_TIMEOUT_MS ?? "300000", 10);
@@ -85,7 +85,7 @@ async function main(): Promise<void> {
     const status = r.timedOut ? "TIMEOUT" : r.code === 0 ? "ok" : `FAILED (exit ${r.code})`;
     console.log(`  ${r.name.padEnd(10)} ${status.padEnd(18)} ${(r.ms / 1000).toFixed(1)}s`);
   }
-  console.log("Check sourced-jobs.md for captured jobs.");
+  console.log("Check data/sourced-jobs.md for captured jobs.");
   process.exit(results.some((r) => r.code !== 0) ? 1 : 0);
 }
 

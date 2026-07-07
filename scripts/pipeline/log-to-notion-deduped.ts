@@ -1,15 +1,15 @@
 /**
- * Reads sourced-jobs.md + a Notion tracker snapshot, dedupes, writes notion-payloads.json.
+ * Reads data/sourced-jobs.md + a Notion tracker snapshot, dedupes, writes data/notion-payloads.json.
  *
  * Snapshot: save the raw JSON from user-notion MCP `query_database` (database_id only —
- * omit the filter param) to notion-tracker-snapshot.json, or pass NOTION_SNAPSHOT=path.
+ * omit the filter param) to data/notion-tracker-snapshot.json, or pass NOTION_SNAPSHOT=path.
  */
 import { readFile, writeFile } from "node:fs/promises";
-import { SCRATCH_FILE, jobKey, parseScratchFile } from "./lib/scratch.js";
-import { dedupeAgainstNotion, parseNotionQueryResults, prepareNotionPayloads } from "./lib/notion.js";
+import { NOTION_PAYLOADS_FILE, NOTION_SNAPSHOT_FILE } from "../lib/paths.js";
+import { dedupeAgainstNotion, parseNotionQueryResults, prepareNotionPayloads } from "../lib/notion.js";
+import { SCRATCH_FILE, jobKey, parseScratchFile } from "../lib/scratch.js";
 
-const OUTPUT = "notion-payloads.json";
-const SNAPSHOT = process.env.NOTION_SNAPSHOT ?? "notion-tracker-snapshot.json";
+const SNAPSHOT = process.env.NOTION_SNAPSHOT ?? NOTION_SNAPSHOT_FILE;
 
 async function main(): Promise<void> {
   const [scratchContent, snapshotContent] = await Promise.all([
@@ -30,11 +30,11 @@ async function main(): Promise<void> {
   const newJobs = dedupeAgainstNotion(scratchUnique, existing);
   const dropped = scratchUnique.length - newJobs.length;
   const payloads = prepareNotionPayloads(newJobs);
-  await writeFile(OUTPUT, JSON.stringify(payloads, null, 2), "utf8");
+  await writeFile(NOTION_PAYLOADS_FILE, JSON.stringify(payloads, null, 2), "utf8");
   console.log(
     `Deduped ${jobs.length} scratch row(s) (${scratchDupes} scratch duplicate(s) collapsed) ` +
       `against ${existing.length} tracker entr(y/ies): ` +
-      `${dropped} Notion duplicate(s) dropped, ${payloads.length} payload(s) → ${OUTPUT}`
+      `${dropped} Notion duplicate(s) dropped, ${payloads.length} payload(s) → ${NOTION_PAYLOADS_FILE}`
   );
 }
 

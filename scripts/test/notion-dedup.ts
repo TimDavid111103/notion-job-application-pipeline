@@ -2,13 +2,13 @@
  * Lightweight unit checks for Notion dedup helpers (no Playwright).
  */
 import assert from "node:assert/strict";
+import { normalizeJobUrl as normalizeJobUrlFromJob } from "../lib/job.js";
 import {
   dedupeAgainstNotion,
   normalizeJobUrl,
   parseNotionQueryResults,
-} from "./lib/notion.js";
-import { normalizeJobUrl as normalizeJobUrlFromJob } from "./lib/job.js";
-import { parseScratchFile, sortNewestFirst } from "./lib/scratch.js";
+} from "../lib/notion.js";
+import { parseScratchFile, sortNewestFirst } from "../lib/scratch.js";
 
 function testNormalizeJobUrl(): void {
   assert.equal(

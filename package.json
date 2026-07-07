@@ -8,15 +8,15 @@
     "auth:wobo": "tsx scripts/auth/login-wobo.ts",
     "auth:handshake": "tsx scripts/auth/login-handshake.ts",
     "auth:jackjill": "tsx scripts/auth/login-jackjill.ts",
-    "test:access": "tsx scripts/test-access.ts",
+    "test:access": "tsx scripts/test/access.ts",
     "source:wobo": "tsx scripts/sources/wobo.ts",
     "source:handshake": "tsx scripts/sources/handshake.ts",
     "source:jackjill": "tsx scripts/sources/jackjill.ts",
-    "source:all": "tsx scripts/source-all.ts",
-    "source:all:parallel": "PARALLEL=1 tsx scripts/source-all.ts",
-    "log:notion": "tsx scripts/log-to-notion.ts",
-    "log:notion:deduped": "tsx scripts/log-to-notion-deduped.ts",
-    "test:notion-dedup": "tsx scripts/test-notion-dedup.ts"
+    "source:all": "tsx scripts/pipeline/source-all.ts",
+    "source:all:parallel": "PARALLEL=1 tsx scripts/pipeline/source-all.ts",
+    "log:notion": "tsx scripts/pipeline/log-to-notion.ts",
+    "log:notion:deduped": "tsx scripts/pipeline/log-to-notion-deduped.ts",
+    "test:notion-dedup": "tsx scripts/test/notion-dedup.ts"
   },
   "dependencies": {
     "playwright": "^1.52.0"

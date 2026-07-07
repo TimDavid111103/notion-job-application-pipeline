@@ -1,6 +1,6 @@
 /**
  * Wobo sourcing entry point — dashboard swipe cards until caught up or JOB_LIMIT
- * new jobs. Skips postings already in sourced-jobs.md (still advances the feed).
+ * new jobs. Skips postings already in data/sourced-jobs.md (still advances the feed).
  */
 import { launchBrowser, createContext, saveAuthState, closeBrowser } from "../lib/browser.js";
 import {

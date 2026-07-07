@@ -19,4 +19,4 @@ Single source of truth per topic. The runbook is [SKILL.md](../SKILL.md); follow
 | Cross-cutting gotchas | [gotchas.md](gotchas.md) |
 | Run log template | [run-log-template.md](run-log-template.md) |
 
-**Repo root:** all Playwright scripts live under `scripts/` (not in this skill folder).
+**Repo root:** Playwright scripts under `scripts/`; runtime artifacts under `data/` (gitignored).

@@ -23,21 +23,23 @@ npm run test:access
 
 ```bash
 npm run source:all
-npm run log:notion
-# then user-notion MCP add_database_entry per notion-payloads.json
+npm run log:notion:deduped
+# then user-notion MCP add_database_entry per data/notion-payloads.json
 ```
 
-Scratch output: `sourced-jobs.md` → dedup → Notion Application Tracker.
+Scratch output: `data/sourced-jobs.md` → dedup → Notion Application Tracker.
 
 ## Layout
 
 ```
 .cursor/skills/job-aggregators/   # Skill runbook + references + run logs
+data/                             # Runtime scratch + Notion artifacts (gitignored)
 scripts/
   auth/                           # Headed login → .auth/*.json
   sources/                        # Per-aggregator sourcing
+  pipeline/                       # Orchestration + Notion payload prep
+  test/                           # Access smoke test + dedup unit checks
   lib/                            # Shared + per-aggregator logic
   setup.sh
 .auth/                            # Saved sessions (gitignored)
-sourced-jobs.md                   # Runtime scratch (gitignored)
 ```

@@ -5,6 +5,7 @@ dist/
 .playwright-cli/
 .DS_Store
 *.log
-notion-payloads.json
-sourced-jobs.md
+data/sourced-jobs.md
+data/notion-payloads.json
+data/notion-tracker-snapshot.json
 .cursor/skills/job-aggregators/logs/*.md

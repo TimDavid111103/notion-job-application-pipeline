@@ -13,7 +13,7 @@ interface SourcedJob {
 }
 ```
 
-## Scratch file (`sourced-jobs.md` at repo root)
+## Scratch file (`data/sourced-jobs.md`)
 
 Markdown table — **persists across runs**; **newest rows at the top**:
 
@@ -54,10 +54,12 @@ Prepared by `npm run log:notion:deduped`; logged by agent via `user-notion` MCP.
 
 Tracker schema, dedup rules, MCP query: [notion-schema.md](notion-schema.md) (do not duplicate here).
 
-## Runtime artifacts (repo root, typically gitignored)
+## Runtime artifacts (`data/`, gitignored)
+
+Paths are defined in `scripts/lib/paths.ts`.
 
 | File | Written by |
 |---|---|
-| `sourced-jobs.md` | aggregator `appendJobs` |
-| `notion-tracker-snapshot.json` | agent `query_database` MCP call |
-| `notion-payloads.json` | `log:notion:deduped` |
+| `data/sourced-jobs.md` | aggregator `appendJobs` |
+| `data/notion-tracker-snapshot.json` | agent `query_database` MCP call |
+| `data/notion-payloads.json` | `log:notion:deduped` |

@@ -1,6 +1,6 @@
 ---
 name: job-aggregators
-description: Sources junior / new-grad AI and software-engineering jobs from Wobo, Handshake, and Jack & Jill, then dedupes against the Notion Application Tracker and logs the new roles. Skips only obvious mismatches (light, keep-when-in-doubt). Use when sourcing, refreshing, or logging job postings, or when the user mentions these aggregators, sourced-jobs.md, or the Notion tracker.
+description: Sources junior / new-grad AI and software-engineering jobs from Wobo, Handshake, and Jack & Jill, then dedupes against the Notion Application Tracker and logs the new roles. Skips only obvious mismatches (light, keep-when-in-doubt). Use when sourcing, refreshing, or logging job postings, or when the user mentions these aggregators, data/sourced-jobs.md, or the Notion tracker.
 disable-model-invocation: true
 ---
 
@@ -20,7 +20,7 @@ source (scratch dedup)  →  dedup vs Notion  →  log new roles  →  run log
 
 - [ ] Sessions verified (`test:access`)
 - [ ] Scratch ensured (`ensureScratchFile` — preserves prior rows)
-- [ ] Aggregators sourced → new rows in `sourced-jobs.md`
+- [ ] Aggregators sourced → new rows in `data/sourced-jobs.md`
 - [ ] Jack inbox + Saved emptied (`jack-empty.ts`)
 - [ ] Notion dedup + payloads prepared
 - [ ] New roles logged via `user-notion` MCP
@@ -48,7 +48,7 @@ bash .cursor/skills/job-aggregators/scripts/setup.sh
 
 ## 2. Ensure scratch file
 
-`npm run source:all` calls `ensureScratchFile()` automatically. Scratch file: `sourced-jobs.md` (persists across runs; **newest rows at top**).
+`npm run source:all` calls `ensureScratchFile()` automatically. Scratch file: `data/sourced-jobs.md` (persists across runs; **newest rows at top**).
 
 Dedup and data shape: [references/data-contracts.md](references/data-contracts.md).
 
@@ -88,7 +88,7 @@ Query **full** tracker history. Drop if normalized Job URL **or** Company + Role
 
 1. Read `user-notion` tool schemas (`query_database`).
 2. `query_database` with database ID `32f1de14-69d8-803a-81ba-fb8cf47a1ccd` — **omit `filter`** (do not pass `filter: {}`).
-3. Save JSON to `notion-tracker-snapshot.json`.
+3. Save JSON to `data/notion-tracker-snapshot.json`.
 
 Rules: [references/notion-schema.md](references/notion-schema.md).
 
@@ -106,7 +106,7 @@ Confirm console reports duplicates dropped. Do **not** use `log:notion` for norm
 
 ## 7. Log via MCP
 
-Agent calls `add_database_entry` (or `add_database_entries`) for each payload in `notion-payloads.json`. Database ID and properties: [references/notion-schema.md](references/notion-schema.md).
+Agent calls `add_database_entry` (or `add_database_entries`) for each payload in `data/notion-payloads.json`. Database ID and properties: [references/notion-schema.md](references/notion-schema.md).
 
 ---
 
