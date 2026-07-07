@@ -47,7 +47,7 @@ Cleanup rules: [scratch-data-formats.md](scratch-data-formats.md).
 ## Failsafe dedup
 
 Scratch dedup during sourcing is primary ([scratch-data-formats.md](scratch-data-formats.md)). This step
-catches scratch rows already in the tracker (e.g. outside scratch retention window).
+catches **today's** scratch rows that already exist in the tracker (e.g. reposted listings).
 
 Query **full tracker history** — postings resurface after ~1 week. Drop a job if **either**:
 
@@ -103,8 +103,11 @@ Each array element matches `prepareNotionPayloads()`:
 | `Job URL` | `jobUrl` | Markdown stripped on read |
 | `Date Added` | today UTC | Set at log time |
 
-**Logging scope:** all scratch rows within retention — not only rows from the latest sourcing
-run. Tracker matches are dropped by `dedupeAgainstNotion`.
+**Logging scope:** only scratch rows with `dateSourced` equal to **today (UTC)**. Older rows in
+`data/sourced-jobs.md` are used during sourcing dedup (`loadScratchKeys` / `appendJobs`) and are
+not re-checked or re-logged here. Override date for debugging: `NOTION_LOG_DATE=YYYY-MM-DD`.
+
+Tracker matches among today's rows are skipped by `dedupeAgainstNotion`.
 
 ## Debug
 

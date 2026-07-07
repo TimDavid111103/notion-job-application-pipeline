@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # Job Aggregators
 
-Orchestration runbook — follow steps 0–11 in order. Details live in
+Orchestration runbook — follow steps 0–11 in order. Full reference catalog:
 [references/reference-index.md](references/reference-index.md)
 
 Playwright npm scripts at repo root (not browser MCP tabs). Headless by default; re-auth only
@@ -70,9 +70,7 @@ Capture new postings from Wobo, Handshake, and Jack & Jill into the scratch file
 npm run source:all
 ```
 
-→ [aggregator-sourcing-spec.md](references/aggregator-sourcing-spec.md) ·
-[light-skip-heuristics.md](references/light-skip-heuristics.md) ·
-[pipeline-commands.md](references/pipeline-commands.md)
+→ [aggregator-sourcing-spec.md](references/aggregator-sourcing-spec.md)
 
 ### 3b. Jack clean-out
 
@@ -88,7 +86,8 @@ npx tsx scripts/sources/jack-empty.ts
 
 ## 4. Verify scratch
 
-Confirm captured rows match the data contract. Report **new this run** vs **total in file**.
+Confirm captured rows match the data contract. Report **total rows**, **unique jobs**
+(distinct `jobKey` — can be fewer than rows), and **new this run** (today's date).
 
 → [scratch-data-formats.md](references/scratch-data-formats.md)
 
@@ -116,7 +115,8 @@ Query the full Notion Application Tracker via MCP and save the response for dedu
 
 ## 7. Prepare Notion payloads
 
-Dedupe scratch against the snapshot; write MCP-ready rows to `data/notion-payloads.json`.
+Dedupe **today's** scratch rows against the snapshot; write MCP-ready rows to `data/notion-payloads.json`.
+Older scratch rows are for sourcing dedup only.
 
 ```bash
 npm run log:notion:deduped
@@ -148,7 +148,8 @@ npm run cleanup:data
 
 ## 10. Report results
 
-Summarize per-aggregator counts, scratch/Notion dedup drops, rows logged, and any failures.
+Summarize per-aggregator counts, scratch rows vs unique jobs, Notion dedup drops, rows
+logged, and any failures.
 
 ---
 

@@ -32,13 +32,19 @@ Identity helpers: `jobKey`, `normalizeJobUrl`, `cleanJobUrl`, `dedupeJobList`.
 - `ensureScratchFile()` (in `source-all.ts`) updates title date, prunes duplicate keys,
   drops rows older than retention, re-sorts newest-first.
 
+**Verify reporting (step 4):** row count ≠ unique job count. Report both — **total rows**
+from `parseScratchFile`, **unique jobs** from `dedupeJobList()` (same keys as
+`jobKey()` / `appendJobs`). If they differ, duplicate URLs are still in the file;
+`ensureScratchFile` prunes on the next `source:all`.
+
 ## Dedup hierarchy
 
 1. **Primary — during sourcing** — `loadScratchKeys()` → `isScratchDuplicate()` in aggregator
    runners. Known postings skip **without counting toward `JOB_LIMIT`** (Wobo/Jack still advance).
+   Uses the full scratch file (retention window).
 2. **At write** — `appendJobs()` via `jobKey()`; duplicates not prepended.
-3. **Failsafe — before Notion** — `dedupeAgainstNotion()` in `log:notion:deduped`. Rules:
-   [notion-tracker-logging.md](notion-tracker-logging.md).
+3. **Failsafe — before Notion** — `dedupeAgainstNotion()` on **today's** scratch rows only in
+   `log:notion:deduped`. Rules: [notion-tracker-logging.md](notion-tracker-logging.md).
 
 ## Runtime artifacts (`data/`, gitignored)
 

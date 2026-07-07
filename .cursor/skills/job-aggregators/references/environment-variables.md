@@ -16,6 +16,7 @@ Run all commands from **repo root**. Override per run: `HEADED=1 JOB_LIMIT=5 npm
 | `AGGREGATOR_TIMEOUT_MS` | 300000 | per-aggregator wall-clock kill cap (Wobo, Handshake) | `source-all.ts` |
 | `JACK_TIMEOUT_MS` / `JACK_TIMEOUT` | 600000 | Jack & Jill wall-clock cap (fill + review) | `source-all.ts`, `jackjill.ts` |
 | `RUN_ID` | ISO timestamp | groups a single sourcing run (logged by `source-all.ts`) | `source-all.ts` |
-| `SCRATCH_RETENTION_DAYS` | 7 | days of scratch rows kept for sourcing dedup + Notion log scope | `scratch.ts` |
+| `SCRATCH_RETENTION_DAYS` | 7 | days of scratch rows kept for sourcing dedup | `scratch.ts` |
+| `NOTION_LOG_DATE` | today UTC | `YYYY-MM-DD` — which scratch rows to log to Notion | `log-to-notion*.ts` |
 | `MAX` | Infinity | cap Saved cards processed | `jack-empty.ts` |
 | `SKIP_INBOX` | unset | `1` = only empty Saved column | `jack-empty.ts` |

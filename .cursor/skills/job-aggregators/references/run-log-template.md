@@ -48,6 +48,7 @@ help improve the skill.
 | Jack & Jill sourced | |
 | Jack clean-out (inbox + Saved) | |
 | Scratch total rows | (cumulative in file) |
+| Scratch unique jobs | (distinct `jobKey`; ≤ total rows) |
 | Scratch new this run | |
 | Scratch dedup skipped | (during sourcing + at append) |
 | Notion dedup dropped | |
@@ -75,7 +76,7 @@ Brief notes on what happened at each phase. Only include phases that ran.
 (inbox count, Saved count, duplicates skipped)
 
 ### 4 — Verify scratch
-(row count, shape issues)
+(total rows, unique jobs by `jobKey`, new-this-run count, shape issues)
 
 ### 5 — Cleanup (before logging)
 (temp artifacts removed)

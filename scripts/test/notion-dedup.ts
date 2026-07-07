@@ -8,7 +8,7 @@ import {
   normalizeJobUrl,
   parseNotionQueryResults,
 } from "../lib/notion.js";
-import { parseScratchFile, pruneByRetention, sortNewestFirst } from "../lib/scratch.js";
+import { parseScratchFile, pruneByRetention, sortNewestFirst, filterJobsByDateSourced } from "../lib/scratch.js";
 
 function testNormalizeJobUrl(): void {
   assert.equal(
@@ -149,9 +149,20 @@ function testPruneByRetention(): void {
   assert.equal(kept[0]?.company, "New");
 }
 
+function testFilterJobsByDateSourced(): void {
+  const jobs = [
+    { company: "A", role: "r", jobUrl: "https://a.com/1", source: "Wobo" as const, location: "", dateSourced: "2026-07-06" },
+    { company: "B", role: "r", jobUrl: "https://b.com/1", source: "Wobo" as const, location: "", dateSourced: "2026-07-07" },
+  ];
+  const today = filterJobsByDateSourced(jobs, "2026-07-07");
+  assert.equal(today.length, 1);
+  assert.equal(today[0]?.company, "B");
+}
+
 testNormalizeJobUrl();
 testCleanJobUrl();
 testPruneByRetention();
+testFilterJobsByDateSourced();
 testDedupeAgainstNotion();
 testParseNotionQueryResults();
 testParseScratchFileEmptyLocation();

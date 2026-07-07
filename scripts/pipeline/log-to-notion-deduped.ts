@@ -1,9 +1,9 @@
 /**
- * Reads data/sourced-jobs.md + a Notion tracker snapshot, dedupes (failsafe vs tracker),
- * writes data/notion-payloads.json for MCP step 7.
+ * Reads today's rows from data/sourced-jobs.md + a Notion tracker snapshot, dedupes
+ * (failsafe vs tracker), writes data/notion-payloads.json for MCP step 7.
  *
- * Primary dedup happens during sourcing via loadScratchKeys(). This script catches
- * scratch rows that already exist in the tracker (e.g. outside scratch retention window).
+ * Older scratch rows are used only during sourcing (loadScratchKeys / appendJobs).
+ * Only rows with dateSourced === today (UTC) are eligible for Notion logging.
  *
  * Snapshot: save the raw JSON from user-notion MCP `query_database` (database_id only —
  * omit the filter param) to data/notion-tracker-snapshot.json, or pass NOTION_SNAPSHOT=path.
@@ -11,16 +11,18 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { NOTION_PAYLOADS_FILE, NOTION_SNAPSHOT_FILE } from "../lib/paths.js";
 import { dedupeAgainstNotion, parseNotionQueryResults, prepareNotionPayloads } from "../lib/notion.js";
-import { SCRATCH_FILE, jobKey, parseScratchFile } from "../lib/scratch.js";
+import { SCRATCH_FILE, filterJobsByDateSourced, jobKey, parseScratchFile, todayIso } from "../lib/scratch.js";
 
 const SNAPSHOT = process.env.NOTION_SNAPSHOT ?? NOTION_SNAPSHOT_FILE;
+const LOG_DATE = process.env.NOTION_LOG_DATE ?? todayIso();
 
 async function main(): Promise<void> {
   const [scratchContent, snapshotContent] = await Promise.all([
     readFile(SCRATCH_FILE, "utf8"),
     readFile(SNAPSHOT, "utf8"),
   ]);
-  const jobs = parseScratchFile(scratchContent);
+  const allScratch = parseScratchFile(scratchContent);
+  const jobs = filterJobsByDateSourced(allScratch, LOG_DATE);
   const scratchUnique: typeof jobs = [];
   const seenScratch = new Set<string>();
   for (const job of jobs) {
@@ -36,9 +38,10 @@ async function main(): Promise<void> {
   const payloads = prepareNotionPayloads(newJobs);
   await writeFile(NOTION_PAYLOADS_FILE, JSON.stringify(payloads, null, 2), "utf8");
   console.log(
-    `Deduped ${jobs.length} scratch row(s) (${scratchDupes} scratch duplicate(s) collapsed) ` +
+    `Deduped ${jobs.length} scratch row(s) for ${LOG_DATE} (${scratchDupes} scratch duplicate(s) collapsed) ` +
       `against ${existing.length} tracker entr(y/ies): ` +
-      `${dropped} Notion duplicate(s) dropped, ${payloads.length} payload(s) → ${NOTION_PAYLOADS_FILE}`
+      `${dropped} Notion duplicate(s) skipped, ${payloads.length} payload(s) → ${NOTION_PAYLOADS_FILE} ` +
+      `(${allScratch.length - jobs.length} older scratch row(s) ignored)`
   );
 }
 

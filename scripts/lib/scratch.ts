@@ -7,7 +7,7 @@
  * Dedup layers (Notion dedup is a failsafe — see `notion.ts`):
  * 1. During sourcing — `loadScratchKeys()` + `isScratchDuplicate()` in aggregator runners.
  * 2. At write — `appendJobs()` via `jobKey()` (prepends only fresh keys).
- * 3. Before Notion log — `dedupeAgainstNotion()` on scratch vs full tracker snapshot.
+ * 3. Before Notion log — `dedupeAgainstNotion()` on today's scratch rows vs full tracker snapshot.
  */
 import { mkdir } from "node:fs/promises";
 import { readFile, writeFile } from "node:fs/promises";
@@ -42,8 +42,13 @@ export function pruneByRetention(jobs: SourcedJob[], retentionDays = getScratchR
   return jobs.filter((job) => (job.dateSourced ?? "") >= cutoff);
 }
 
-function todayIso(): string {
+export function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+/** Keep rows whose `dateSourced` matches the given ISO date (default: today UTC). */
+export function filterJobsByDateSourced(jobs: SourcedJob[], date = todayIso()): SourcedJob[] {
+  return jobs.filter((job) => job.dateSourced === date);
 }
 
 function headerDate(content: string): string | undefined {
