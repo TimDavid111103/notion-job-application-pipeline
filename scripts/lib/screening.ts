@@ -1,6 +1,6 @@
 /**
  * Advisory-only screening flags — never eliminates jobs by themselves.
- * Skill: `.cursor/skills/job-aggregators/references/elimination-rules.md`
+ * Skill: `.cursor/skills/job-aggregators/references/light-skip-heuristics.md`
  */
 export function isHourlyCompensation(text: string): boolean {
   return /\$\d+(?:\.\d{2})?\s*(?:\/\s*hr|per\s+hour|hourly)/i.test(text);

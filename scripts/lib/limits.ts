@@ -1,6 +1,6 @@
 /**
  * Per-aggregator job limits from env vars.
- * Defaults: `.cursor/skills/job-aggregators/references/env-vars.md`
+ * Defaults: `.cursor/skills/job-aggregators/references/environment-variables.md`
  */
 export const DEFAULT_LIMITS: Record<string, number> = {
   wobo: 30,

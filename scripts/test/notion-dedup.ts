@@ -2,13 +2,13 @@
  * Lightweight unit checks for Notion dedup helpers (no Playwright).
  */
 import assert from "node:assert/strict";
-import { normalizeJobUrl as normalizeJobUrlFromJob } from "../lib/job.js";
+import { cleanJobUrl, normalizeJobUrl as normalizeJobUrlFromJob } from "../lib/job.js";
 import {
   dedupeAgainstNotion,
   normalizeJobUrl,
   parseNotionQueryResults,
 } from "../lib/notion.js";
-import { parseScratchFile, sortNewestFirst } from "../lib/scratch.js";
+import { parseScratchFile, pruneByRetention, sortNewestFirst } from "../lib/scratch.js";
 
 function testNormalizeJobUrl(): void {
   assert.equal(
@@ -130,7 +130,28 @@ function testSortNewestFirst(): void {
   assert.equal(sorted[0]?.company, "B");
 }
 
+function testCleanJobUrl(): void {
+  assert.equal(cleanJobUrl("[https://jobs.example.com/1](https://jobs.example.com/1)"), "https://jobs.example.com/1");
+  assert.equal(cleanJobUrl("https://jobs.example.com/2"), "https://jobs.example.com/2");
+  assert.equal(
+    normalizeJobUrlFromJob("[x](https://app.joinhandshake.com/job-search/11147594)"),
+    "https://app.joinhandshake.com/jobs/11147594"
+  );
+}
+
+function testPruneByRetention(): void {
+  const jobs = [
+    { company: "Old", role: "r", jobUrl: "https://a.com/1", source: "Wobo" as const, location: "", dateSourced: "2020-01-01" },
+    { company: "New", role: "r", jobUrl: "https://b.com/1", source: "Wobo" as const, location: "", dateSourced: "2099-01-01" },
+  ];
+  const kept = pruneByRetention(jobs, 7);
+  assert.equal(kept.length, 1);
+  assert.equal(kept[0]?.company, "New");
+}
+
 testNormalizeJobUrl();
+testCleanJobUrl();
+testPruneByRetention();
 testDedupeAgainstNotion();
 testParseNotionQueryResults();
 testParseScratchFileEmptyLocation();

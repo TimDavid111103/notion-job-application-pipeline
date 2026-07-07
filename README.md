@@ -23,11 +23,15 @@ npm run test:access
 
 ```bash
 npm run source:all
+npm run cleanup:data          # before logging — removes stale temp artifacts
 npm run log:notion:deduped
 # then user-notion MCP add_database_entry per data/notion-payloads.json
+npm run cleanup:data          # after logging — keeps only sourced-jobs.md
 ```
 
 Scratch output: `data/sourced-jobs.md` → dedup → Notion Application Tracker.
+
+Skill references: `.cursor/skills/job-aggregators/references/reference-index.md`
 
 ## Layout
 

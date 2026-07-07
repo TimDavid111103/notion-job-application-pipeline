@@ -1,5 +1,9 @@
 /**
- * Reads data/sourced-jobs.md + a Notion tracker snapshot, dedupes, writes data/notion-payloads.json.
+ * Reads data/sourced-jobs.md + a Notion tracker snapshot, dedupes (failsafe vs tracker),
+ * writes data/notion-payloads.json for MCP step 7.
+ *
+ * Primary dedup happens during sourcing via loadScratchKeys(). This script catches
+ * scratch rows that already exist in the tracker (e.g. outside scratch retention window).
  *
  * Snapshot: save the raw JSON from user-notion MCP `query_database` (database_id only —
  * omit the filter param) to data/notion-tracker-snapshot.json, or pass NOTION_SNAPSHOT=path.

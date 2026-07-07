@@ -16,6 +16,8 @@
     "source:all:parallel": "PARALLEL=1 tsx scripts/pipeline/source-all.ts",
     "log:notion": "tsx scripts/pipeline/log-to-notion.ts",
     "log:notion:deduped": "tsx scripts/pipeline/log-to-notion-deduped.ts",
+    "run-log:basename": "tsx scripts/pipeline/run-log-basename.ts",
+    "cleanup:data": "tsx scripts/pipeline/cleanup-data.ts",
     "test:notion-dedup": "tsx scripts/test/notion-dedup.ts"
   },
   "dependencies": {

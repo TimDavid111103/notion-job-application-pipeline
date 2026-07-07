@@ -1,19 +1,24 @@
 # Run Log Template
 
 Every completed run (including partial or failed runs) must end with a log file in
-`logs/`. The filename is a UTC timestamp so files sort chronologically when listed:
+`logs/`. The filename uses an inverted UTC millisecond prefix so **ascending name
+sort lists newest logs first** (matches scratch file ordering):
 
 ```
-logs/2026-07-03T17-33-00Z.md
+logs/9999997854321-2026-07-07T14-54-24Z.md
 ```
 
 Generate the filename at write time:
 
 ```bash
-date -u +"%Y-%m-%dT%H-%M-%SZ"
+npm run run-log:basename
 ```
 
-Append `.md` and write under `.cursor/skills/job-aggregators/logs/`.
+Write under `.cursor/skills/job-aggregators/logs/`. Implementation:
+`scripts/lib/run-log.ts`.
+
+Optional suffix before `.md` for debug notes (e.g. `-wobo-debug`):
+`{sortKey}-{timestamp}-wobo-debug.md`.
 
 ---
 
@@ -72,11 +77,17 @@ Brief notes on what happened at each phase. Only include phases that ran.
 ### 4 — Verify scratch
 (row count, shape issues)
 
-### 5 — Dedup
+### 5 — Cleanup (before logging)
+(temp artifacts removed)
+
+### 6 — Dedup
 (tracker query size, duplicates found)
 
-### 6–7 — Notion log
+### 7–8 — Notion log
 (payload count, MCP errors)
+
+### 9 — Cleanup (after logging)
+(temp artifacts removed)
 
 ## Self-analysis — skill improvements
 
@@ -85,16 +96,10 @@ Review friction, confusion, or failures against the skill files (`SKILL.md`,
 
 | Skill area | Issue | Proposed improvement | Priority |
 |---|---|---|---|
-| e.g. `references/jack-kanban.md` | Saved column selector missed on slow load | Add explicit waitFor note before first card click | high |
+| e.g. `references/jack-kanban-cleanup.md` | Saved column selector missed on slow load | Add explicit waitFor note before first card click | high |
 | | | | |
 
-**Skill areas to consider:**
-- `SKILL.md` runbook steps (order, clarity, missing checks)
-- `references/job-aggregators.md` (per-aggregator spec)
-- `references/access.md` (auth, selectors)
-- `references/jack-kanban.md` / `references/jack-prompts.md`
-- `references/elimination-rules.md` / `references/job-judgement.md`
-- Repo scripts — [scripts-map.md](scripts-map.md), [commands.md](commands.md)
+**Skill areas to consider:** see topic index in [reference-index.md](reference-index.md).
 
 **What worked well:** (optional — steps or references that were clear and effective)
 
@@ -107,4 +112,4 @@ Review friction, confusion, or failures against the skill files (`SKILL.md`,
 - **One file per run** — do not append to prior logs.
 - **Self-analysis is required** — if the run was clean, say so and note minor polish ideas or confirm which references were sufficient.
 - **Do not log secrets** — no passwords, session tokens, or full `.auth/` contents.
-- **Prior logs** — optionally skim the latest 1–2 files in `logs/` at the start of a run to avoid repeating known issues.
+- **Prior logs** — optionally skim the first 1–2 files in `logs/` at the start of a run (newest at top) to avoid repeating known issues.

@@ -140,7 +140,7 @@ export async function searchAndCollect(
       continue;
     }
     // Regex only ALERTS — it never eliminates. Capture and surface flags for agent judgement
-    // (see skill references/job-judgement.md); curation happens before logging to Notion.
+    // (see skill references/job-curation-judgement.md); curation happens before logging to Notion.
     const flags = screeningSignals(role, row.text);
 
     jobs.push(candidate);

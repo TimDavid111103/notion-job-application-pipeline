@@ -1,8 +1,9 @@
-# Aggregator Access
+# Auth and Selectors
 
-Auth, URLs, and selectors. Commands: [commands.md](commands.md). Job limits: [env-vars.md](env-vars.md).
+Single source of truth for auth, URLs, and selectors. Commands: [pipeline-commands.md](pipeline-commands.md).
+Job limits: [environment-variables.md](environment-variables.md). Sourcing behavior: [aggregator-sourcing-spec.md](aggregator-sourcing-spec.md).
 
-Sessions: `.auth/{wobo,handshake,jackjill}.json`. Default: **headless** (`HEADED=1` to debug).
+Sessions: `.auth/{wobo,handshake,jackjill}.json`. Default **headless** (`HEADED=1` to debug).
 
 ## Auth (fallback only)
 
@@ -23,7 +24,8 @@ npm run test:access
 | Save / Decline | Card-footer only — `feedActionButton()` → `.last()` |
 | Caught up | `/all caught up\|no more matches/i` |
 
-Sticky header Save/Decline do **not** advance. Keyboard `s` / `a` fallback. Force-click for SwipeCard overlay.
+Sticky header Save/Decline do **not** advance the feed. Keyboard `s` / `a` fallback.
+Force-click for SwipeCard overlay.
 
 ## Handshake
 
@@ -34,7 +36,8 @@ Sticky header Save/Decline do **not** advance. Keyboard `s` / `a` fallback. Forc
 | Search | `input[name="query"]` |
 | Filters | `getByRole('button', { name: /filters/i })` |
 
-Do not use `role=combobox` or `placeholder*="Search"` for main search. Headed login once for Cloudflare.
+Do not use `role=combobox` or `placeholder*="Search"` for main search. Headed login once
+for Cloudflare.
 
 ## Jack & Jill
 
@@ -43,6 +46,12 @@ Do not use `role=combobox` or `placeholder*="Search"` for main search. Headed lo
 | Inbox | `https://app.jackandjill.ai/jack/dashboard/inbox` |
 | Kanban | `https://app.jackandjill.ai/jack/dashboard/jobs/kanban` |
 | Auth | `.auth/jackjill.json` |
-| Inbox selectors | Review job, View job post, Track, Not for me |
+| Inbox | `getByRole("button", { name: /review job/i })`; reject confirm `/skip this role/i` |
 
-Kanban selectors and clean-out flow: [jack-kanban.md](jack-kanban.md). Prompts: [jack-prompts.md](jack-prompts.md).
+Clean-out flow and kanban DOM: [jack-kanban-cleanup.md](jack-kanban-cleanup.md). Search prompts:
+[jack-inbox-prompts.md](jack-inbox-prompts.md).
+
+## DOM waits
+
+- **`locator.isVisible()` does not wait** — use `waitFor({ state: "visible" })`.
+- Jack: scope to right pane (x > ~520) — chat feed has look-alike buttons.

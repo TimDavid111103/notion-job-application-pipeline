@@ -1,4 +1,4 @@
-# Elimination Rules (job-aggregators)
+# Light Skip Heuristics
 
 > **Light skip only.** These are quick-skim heuristics during sourcing — not a filter or scoring
 > step. The pipeline's job is to find postings and get them into Notion fast. **When in doubt,
@@ -6,7 +6,7 @@
 
 Hardcoded regex (`screeningSignals` in repo `scripts/lib/screening.ts`) only prints optional `⚠`
 alerts for the items below; it **never** eliminates a job. For borderline cases or Saved-kanban
-curation, see [job-judgement.md](job-judgement.md).
+curation, see [job-curation-judgement.md](job-curation-judgement.md).
 
 Apply at a glance — do not deep-read to confirm. Consider skipping a posting only if **any** of
 the following is obvious on a genuine (not keyword) look:

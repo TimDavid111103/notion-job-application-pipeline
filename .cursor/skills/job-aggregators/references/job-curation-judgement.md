@@ -1,4 +1,4 @@
-# Job Judgement
+# Job Curation Judgement
 
 The final keep/reject decision is **yours to make with judgement**, not a keyword match.
 Hardcoded regex (`screeningSignals` in repo `scripts/lib/screening.ts`) exists only to **flag things
@@ -8,7 +8,7 @@ the candidate profile below, and decide.
 **Default bias: keep.** Sourcing is cheap; a missed good role is expensive. When a posting is
 borderline or you're unsure, keep it and log to Notion. Only reject when the mismatch is clear
 on a genuine read (not a keyword hit). For quick glances during sourcing, use
-[elimination-rules.md](elimination-rules.md) instead.
+[light-skip-heuristics.md](light-skip-heuristics.md) instead.
 
 ## Candidate profile (what we're looking for)
 

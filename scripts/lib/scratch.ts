@@ -1,15 +1,17 @@
 /**
  * Scratch file I/O for `data/sourced-jobs.md`.
  *
- * New rows are prepended (newest at top). Each row has a `Date` column (sourced-on date).
+ * Rolling window of recent postings (default 7 days) loaded into memory during
+ * sourcing so aggregators skip known jobs without burning JOB_LIMIT quota.
  *
- * Dedup layers (Notion dedup is separate — see `notion.ts`):
+ * Dedup layers (Notion dedup is a failsafe — see `notion.ts`):
  * 1. During sourcing — `loadScratchKeys()` + `isScratchDuplicate()` in aggregator runners.
  * 2. At write — `appendJobs()` via `jobKey()` (prepends only fresh keys).
+ * 3. Before Notion log — `dedupeAgainstNotion()` on scratch vs full tracker snapshot.
  */
 import { mkdir } from "node:fs/promises";
 import { readFile, writeFile } from "node:fs/promises";
-import { dedupeJobList, jobKey, type SourcedJob } from "./job.js";
+import { cleanJobUrl, dedupeJobList, jobKey, type SourcedJob } from "./job.js";
 import { DATA_DIR, SCRATCH_FILE } from "./paths.js";
 
 export type { SourcedJob } from "./job.js";
@@ -18,6 +20,27 @@ export { SCRATCH_FILE } from "./paths.js";
 
 const TABLE_HEADER =
   "| Date | Company | Role | Job URL | Source | Location |\n|---|---|---|---|---|---|\n";
+
+const DEFAULT_SCRATCH_RETENTION_DAYS = 7;
+
+export function getScratchRetentionDays(): number {
+  const raw = process.env.SCRATCH_RETENTION_DAYS;
+  if (!raw) return DEFAULT_SCRATCH_RETENTION_DAYS;
+  const n = parseInt(raw, 10);
+  return Number.isFinite(n) && n > 0 ? n : DEFAULT_SCRATCH_RETENTION_DAYS;
+}
+
+function retentionCutoffIso(retentionDays: number): string {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() - retentionDays);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Drop rows older than the retention window (by `dateSourced`). */
+export function pruneByRetention(jobs: SourcedJob[], retentionDays = getScratchRetentionDays()): SourcedJob[] {
+  const cutoff = retentionCutoffIso(retentionDays);
+  return jobs.filter((job) => (job.dateSourced ?? "") >= cutoff);
+}
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
@@ -68,9 +91,15 @@ export async function ensureScratchFile(): Promise<{ existing: number; pruned: n
   const jobs = parseScratchFile(content, fallbackDate);
   const unique = dedupeJobList(jobs);
   const pruned = jobs.length - unique.length;
-  await writeScratchTable(unique);
+  const retentionDays = getScratchRetentionDays();
+  const retained = pruneByRetention(unique, retentionDays);
+  const agedOut = unique.length - retained.length;
+  await writeScratchTable(retained);
   if (pruned > 0) console.log(`Pruned ${pruned} duplicate row(s) from ${SCRATCH_FILE}`);
-  return { existing: unique.length, pruned };
+  if (agedOut > 0) {
+    console.log(`Dropped ${agedOut} row(s) older than ${retentionDays} day(s) from ${SCRATCH_FILE}`);
+  }
+  return { existing: retained.length, pruned: pruned + agedOut };
 }
 
 /** @deprecated Use `ensureScratchFile`. */
@@ -78,13 +107,17 @@ export async function initScratchFile(): Promise<void> {
   await ensureScratchFile();
 }
 
-export async function loadScratchKeys(): Promise<Set<string>> {
+export async function loadScratchJobs(): Promise<SourcedJob[]> {
   try {
     const content = await readFile(SCRATCH_FILE, "utf8");
-    return new Set(parseScratchFile(content, headerDate(content)).map(jobKey));
+    return parseScratchFile(content, headerDate(content));
   } catch {
-    return new Set<string>();
+    return [];
   }
+}
+
+export async function loadScratchKeys(): Promise<Set<string>> {
+  return new Set((await loadScratchJobs()).map(jobKey));
 }
 
 export function isScratchDuplicate(
@@ -137,7 +170,7 @@ export function parseScratchFile(content: string, defaultDate?: string): Sourced
         dateSourced: cols[0],
         company: cols[1],
         role: cols[2],
-        jobUrl: cols[3],
+        jobUrl: cleanJobUrl(cols[3]),
         source: cols[4] as SourcedJob["source"],
         location: cols[5] ?? "",
       });
@@ -148,7 +181,7 @@ export function parseScratchFile(content: string, defaultDate?: string): Sourced
         dateSourced: defaultDate ?? "",
         company: cols[0],
         role: cols[1],
-        jobUrl: cols[2],
+        jobUrl: cleanJobUrl(cols[2]),
         source: cols[3] as SourcedJob["source"],
         location: cols[4] ?? "",
       });

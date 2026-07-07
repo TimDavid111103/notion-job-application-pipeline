@@ -1,4 +1,4 @@
-# Jack & Jill Search Prompts
+# Jack Inbox Prompts
 
 These are example prompts to use as inspiration when filling the inbox. Do not send them verbatim or in order — adapt, combine, and vary them based on what kinds of roles are still missing from the inbox. The goal is variety across role type, location, and company context while always landing on junior/associate/new grad AI engineering roles.
 

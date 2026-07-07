@@ -14,22 +14,34 @@ export interface SourcedJob {
 }
 
 /**
+ * Unwrap markdown link syntax (`[label](url)`) or return a trimmed plain URL.
+ */
+export function cleanJobUrl(raw?: string): string {
+  if (!raw) return "";
+  const trimmed = raw.trim();
+  const md = trimmed.match(/^\[[^\]]*\]\(([^)]+)\)$/);
+  return (md ? md[1] : trimmed).trim();
+}
+
+/**
  * Canonicalizes a job URL so equivalent postings compare equal:
+ * - unwraps markdown `[text](url)` links
  * - drops query string and hash
  * - lowercases host + trims trailing slash
  * - rewrites Handshake `/job-search/{id}` → `/jobs/{id}`
  */
 export function normalizeJobUrl(raw?: string): string {
-  if (!raw) return "";
+  const cleaned = cleanJobUrl(raw);
+  if (!cleaned) return "";
   try {
-    const u = new URL(raw);
+    const u = new URL(cleaned);
     let pathname = u.pathname.replace(/\/+$/, "");
     if (/joinhandshake\.com$/i.test(u.hostname)) {
       pathname = pathname.replace(/\/job-search\/(\d+)/, "/jobs/$1");
     }
     return `${u.protocol}//${u.hostname}${pathname}`.toLowerCase();
   } catch {
-    return raw.split(/[?#]/)[0].replace(/\/+$/, "").toLowerCase();
+    return cleaned.split(/[?#]/)[0].replace(/\/+$/, "").toLowerCase();
   }
 }
 

@@ -1,8 +1,8 @@
 /**
  * Notion Application Tracker — payload formatting and dedup (no direct API calls).
- * Schema and MCP workflow: `.cursor/skills/job-aggregators/references/notion-schema.md`
+ * Notion logging: `.cursor/skills/job-aggregators/references/notion-tracker-logging.md`
  */
-import { companyRoleKey, normalizeJobUrl, type SourcedJob } from "./job.js";
+import { cleanJobUrl, companyRoleKey, normalizeJobUrl, type SourcedJob } from "./job.js";
 
 export const NOTION_DATABASE_ID = "32f1de14-69d8-803a-81ba-fb8cf47a1ccd";
 export const NOTION_DATA_SOURCE_ID = "32f1de14-69d8-8016-9135-000ba274e2bd";
@@ -25,7 +25,7 @@ export function toNotionProperties(job: SourcedJob, date = new Date()): NotionEn
     Company: job.company,
     Role: job.role,
     Location: job.source,
-    "Job URL": job.jobUrl,
+    "Job URL": cleanJobUrl(job.jobUrl),
     "Date Added": isoDate,
   };
 }
