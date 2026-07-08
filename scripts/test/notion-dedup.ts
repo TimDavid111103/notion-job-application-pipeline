@@ -7,6 +7,7 @@ import {
   dedupeAgainstNotion,
   normalizeJobUrl,
   parseNotionQueryResults,
+  parseTrackerRows,
 } from "../lib/notion.js";
 import { parseScratchFile, pruneByRetention, sortNewestFirst, filterJobsByDateSourced } from "../lib/scratch.js";
 
@@ -93,6 +94,15 @@ function testParseNotionQueryResults(): void {
   assert.equal(parsedMcp[0]?.jobUrl, "https://jobs.example.com/1");
 }
 
+function testParseTrackerRowsPageId(): void {
+  const snapshot = {
+    results: [{ id: "xyz", Company: "Co", Role: "Dev", "Job URL": "https://x.com/1" }],
+  };
+  const rows = parseTrackerRows(snapshot);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0]?.pageId, "xyz");
+}
+
 function testParseScratchFileEmptyLocation(): void {
   const row =
     "| 2026-07-03 | LSEG | Associate AI Product Developer | https://example.com/j/1 | Jack & Jill |  |";
@@ -165,6 +175,7 @@ testPruneByRetention();
 testFilterJobsByDateSourced();
 testDedupeAgainstNotion();
 testParseNotionQueryResults();
+testParseTrackerRowsPageId();
 testParseScratchFileEmptyLocation();
 testParseScratchFileLegacyColumns();
 testParseScratchFileUrlWithTripleDash();

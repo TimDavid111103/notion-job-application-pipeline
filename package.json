@@ -18,7 +18,13 @@
     "log:notion:deduped": "tsx scripts/pipeline/log-to-notion-deduped.ts",
     "run-log:basename": "tsx scripts/pipeline/run-log-basename.ts",
     "cleanup:data": "tsx scripts/pipeline/cleanup-data.ts",
-    "test:notion-dedup": "tsx scripts/test/notion-dedup.ts"
+    "test:notion-dedup": "tsx scripts/test/notion-dedup.ts",
+    "scrape:descriptions": "tsx scripts/pipeline/scrape-descriptions.ts",
+    "write:jobs-needing-descriptions": "tsx scripts/pipeline/write-jobs-needing-descriptions.ts",
+    "write:scrape-queue": "tsx scripts/pipeline/write-scrape-queue.ts",
+    "run-log:basename:scraper": "tsx scripts/pipeline/run-log-basename-scraper.ts",
+    "test:job-description": "tsx scripts/test/job-description.ts",
+    "test:scrape-artifacts": "tsx scripts/test/scrape-artifacts.ts"
   },
   "dependencies": {
     "playwright": "^1.52.0"

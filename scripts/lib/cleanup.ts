@@ -9,6 +9,9 @@ export const PERMANENT_DATA_BASENAMES = new Set(["sourced-jobs.md", ".gitkeep"])
 export const TEMPORARY_DATA_BASENAMES = new Set([
   "notion-tracker-snapshot.json",
   "notion-payloads.json",
+  "jobs-needing-descriptions.json",
+  "notion-scrape-queue.json",
+  "scrape-results.json",
 ]);
 
 /** True for explicit temp artifacts and aggregator scratch-pad naming conventions. */
@@ -17,6 +20,7 @@ export function isTemporaryDataBasename(name: string): boolean {
   return (
     TEMPORARY_DATA_BASENAMES.has(name) ||
     name.endsWith(".scratch.md") ||
+    name.endsWith("-staging.json") ||
     name.endsWith("-temp.md")
   );
 }

@@ -8,4 +8,8 @@ dist/
 data/sourced-jobs.md
 data/notion-payloads.json
 data/notion-tracker-snapshot.json
+data/jobs-needing-descriptions.json
+data/notion-scrape-queue.json
+data/scrape-results.json
 .cursor/skills/job-aggregators/logs/*.md
+.cursor/skills/job-description-scraper/logs/*.md
