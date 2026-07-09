@@ -19,6 +19,22 @@ export function authPath(aggregator: Aggregator): string {
   return path.join(AUTH_DIR, `${aggregator}.json`);
 }
 
+/**
+ * Maps a job posting URL to the aggregator whose saved session can reach it.
+ * Handshake postings live behind login; other ATS hosts (Greenhouse, Lever,
+ * Ashby, Workday, …) are public and need no session. Extend here when another
+ * authenticated host is added.
+ */
+export function aggregatorForUrl(url: string): Aggregator | undefined {
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    if (host.includes("joinhandshake.com")) return "handshake";
+  } catch {
+    /* invalid url — treat as public */
+  }
+  return undefined;
+}
+
 export interface LaunchOptions {
   headed?: boolean;
   aggregator?: Aggregator;

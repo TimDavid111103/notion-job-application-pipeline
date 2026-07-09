@@ -136,7 +136,7 @@ Written by `npm run scrape:descriptions`. One row per queued URL, same order as 
 | `broken` | `null` | one of the reason codes below | `true` |
 
 Broken reason codes: `404`, `dns_failure`, `timeout`, `login_required`, `captcha`,
-`empty_content`, `posting_closed`, `navigation_error`, `missing_url`.
+`empty_content`, `posting_closed`, `navigation_error`, `missing_url`, `non_english`.
 
 ### Markdown shape (`status: "ok"`)
 

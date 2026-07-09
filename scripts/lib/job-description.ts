@@ -3,14 +3,25 @@
  */
 import type { Page, Response } from "playwright";
 import { cleanJobUrl } from "./job.js";
+import { isEnglishDescription } from "./language.js";
 import type { BrokenReason } from "./scrape-artifacts.js";
+import {
+  classifyPageFailure,
+  isDeletableFailure,
+} from "./url-health.js";
 import {
   EXTRACT_MARKDOWN_FROM_DOM_SOURCE,
   formatJobDescriptionMarkdown,
   formatJobDescriptionPlain,
 } from "./scrape-markdown.js";
+import {
+  fetchWorkdayJobDescription,
+  isWorkdayJobUrl,
+  workdayPostingToPlainText,
+} from "./workday.js";
 
 export type { BrokenReason };
+export { classifyPageFailure, isDeletableFailure };
 
 export interface ScrapeOutcome {
   status: "ok" | "broken";
@@ -21,34 +32,8 @@ export interface ScrapeOutcome {
 
 const MIN_DESCRIPTION_CHARS = 200;
 
-const LOGIN_PATTERNS = [
-  /sign\s*in/i,
-  /log\s*in/i,
-  /create\s+an?\s+account/i,
-  /authentication\s+required/i,
-];
-
-const CAPTCHA_PATTERNS = [/captcha/i, /verify\s+you(?:'re| are)\s+human/i, /recaptcha/i];
-
-const CLOSED_PATTERNS = [
-  /no longer (?:available|accepting)/i,
-  /position (?:has been )?filled/i,
-  /job (?:posting )?closed/i,
-  /this (?:role|position|job) (?:is )?no longer/i,
-];
-
-const APPLICATION_FORM_PATTERNS = [
-  /submit your application/i,
-  /attach resume/i,
-  /couldn't auto-read resume/i,
-  /optional demographic survey/i,
-  /applicant-timezone/i,
-  /file exceeds the maximum upload size/i,
-];
-
-/** Broken scrape outcomes are removed from the tracker. */
-export function isDeletableFailure(_reason: BrokenReason): boolean {
-  return true;
+function broken(error: BrokenReason): ScrapeOutcome {
+  return { status: "broken", error, deletable: isDeletableFailure(error) };
 }
 
 export function getScrapeTimeoutMs(): number {
@@ -72,28 +57,99 @@ export function getScrapeLimit(): number {
   return Number.isFinite(n) && n > 0 ? n : Infinity;
 }
 
-function broken(error: BrokenReason): ScrapeOutcome {
-  return { status: "broken", error, deletable: isDeletableFailure(error) };
+function finalizeDescription(description: string): ScrapeOutcome {
+  if (!isEnglishDescription(description)) {
+    return broken("non_english");
+  }
+
+  let markdown: string;
+  try {
+    markdown = formatJobDescriptionMarkdown(description);
+  } catch {
+    markdown = formatJobDescriptionPlain(description);
+  }
+  return { status: "ok", markdown, deletable: false };
 }
 
-export function classifyPageFailure(
-  page: Page,
-  response: Response | null,
-  bodyText: string
-): BrokenReason | null {
-  const status = response?.status() ?? 0;
-  if (status === 404 || status === 410) return "404";
+async function scrapeWorkdayViaApi(url: string): Promise<ScrapeOutcome | null> {
+  const posting = await fetchWorkdayJobDescription(url);
+  if (!posting) return null;
 
-  const title = (page.url() + " " + bodyText.slice(0, 2000)).toLowerCase();
-  if (CLOSED_PATTERNS.some((re) => re.test(bodyText.slice(0, 4000)))) return "posting_closed";
-  if (APPLICATION_FORM_PATTERNS.filter((re) => re.test(bodyText.slice(0, 4000))).length >= 2) {
-    return "empty_content";
+  const description = workdayPostingToPlainText(posting);
+  if (description.trim().length < MIN_DESCRIPTION_CHARS) return null;
+
+  return finalizeDescription(description);
+}
+
+async function waitForWorkdayDescription(page: Page): Promise<void> {
+  try {
+    const host = new URL(page.url()).hostname.toLowerCase();
+    if (!host.includes("myworkdayjobs.com")) return;
+    await page.waitForSelector("[data-automation-id='jobPostingDescription']", {
+      timeout: 10_000,
+    });
+    await page.waitForTimeout(500);
+  } catch {
+    /* best-effort — fall through to generic extraction */
   }
-  if (CAPTCHA_PATTERNS.some((re) => re.test(title))) return "captcha";
-  if (LOGIN_PATTERNS.some((re) => re.test(bodyText.slice(0, 1500)))) return "login_required";
+}
 
-  if (bodyText.trim().length < MIN_DESCRIPTION_CHARS) return "empty_content";
-  return null;
+/**
+ * Accessible-name patterns for "expand"/"read more" toggles that hide the rest
+ * of a posting behind a click. Handshake truncates every description behind a
+ * "More" button (aria-label "Show more (…)"), but Workday/iCIMS/others use the
+ * same pattern — so this is applied to all hosts.
+ */
+const EXPAND_NAME_PATTERNS = [
+  /\b(show|see|read|view)\s+more\b/i,
+  /^more$/i,
+  /(show|view|read)\s+full\s+(description|posting|job|details)/i,
+];
+
+/** Names that look like "more" but open menus/lists or collapse — never click. */
+const EXPAND_NAME_EXCLUDE = /\b(actions|options|filters|info|jobs|less)\b|learn more/i;
+
+/**
+ * Clicks in-page "show more"/"More" expanders so the full posting is in the DOM
+ * before extraction. Best-effort and generalized: guarded by name patterns, capped,
+ * and never throws. Returns the number of toggles clicked.
+ */
+export async function expandTruncatedSections(page: Page): Promise<number> {
+  try {
+    const clicked = await page.evaluate(
+      ({ patterns, exclude }) => {
+        const rePatterns = patterns.map((p) => new RegExp(p.source, p.flags));
+        const reExclude = new RegExp(exclude.source, exclude.flags);
+        const nodes = Array.from(
+          document.querySelectorAll("button, a[role='button'], [role='button'], summary")
+        );
+        let count = 0;
+        for (const el of nodes) {
+          const name = ((el.textContent ?? "") + " " + (el.getAttribute("aria-label") ?? ""))
+            .replace(/\s+/g, " ")
+            .trim();
+          if (!name || reExclude.test(name)) continue;
+          if (!rePatterns.some((re) => re.test(name))) continue;
+          try {
+            (el as HTMLElement).click();
+            count++;
+          } catch {
+            /* element detached / not clickable */
+          }
+          if (count >= 8) break;
+        }
+        return count;
+      },
+      {
+        patterns: EXPAND_NAME_PATTERNS.map((re) => ({ source: re.source, flags: re.flags })),
+        exclude: { source: EXPAND_NAME_EXCLUDE.source, flags: EXPAND_NAME_EXCLUDE.flags },
+      }
+    );
+    if (clicked > 0) await page.waitForTimeout(1000);
+    return clicked;
+  } catch {
+    return 0;
+  }
 }
 
 export async function extractDescriptionText(page: Page): Promise<string> {
@@ -117,7 +173,7 @@ export async function extractDescriptionText(page: Page): Promise<string> {
         "[data-automation-id='jobPostingDescription']",
         "[data-automation-id='jobPostingPage']",
       ],
-      "joinhandshake.com": ["[data-hook='job-description']", "main", "article"],
+      "joinhandshake.com": ["[data-hook='job-details-page']", "main", "article"],
     };
 
     const tryExtract = (el: Element | null): string => {
@@ -188,6 +244,11 @@ export async function scrapeJobDescription(page: Page, rawUrl: string): Promise<
   const url = normalizeScrapeUrl(cleanJobUrl(rawUrl));
   if (!url) return broken("missing_url");
 
+  if (isWorkdayJobUrl(url)) {
+    const apiOutcome = await scrapeWorkdayViaApi(url);
+    if (apiOutcome) return apiOutcome;
+  }
+
   const timeout = getScrapeTimeoutMs();
   let response: Response | null = null;
 
@@ -202,7 +263,12 @@ export async function scrapeJobDescription(page: Page, rawUrl: string): Promise<
     return broken("navigation_error");
   }
 
+  await waitForWorkdayDescription(page);
   await page.waitForTimeout(1500);
+
+  // Expand any "More"/"read more" toggles so truncated descriptions are complete
+  // before we read the body (Handshake hides the full posting behind this).
+  await expandTruncatedSections(page);
 
   let bodyText = "";
   try {
@@ -219,13 +285,7 @@ export async function scrapeJobDescription(page: Page, rawUrl: string): Promise<
     return broken("empty_content");
   }
 
-  let markdown: string;
-  try {
-    markdown = formatJobDescriptionMarkdown(description);
-  } catch {
-    markdown = formatJobDescriptionPlain(description);
-  }
-  return { status: "ok", markdown, deletable: false };
+  return finalizeDescription(description);
 }
 
 export function sleep(ms: number): Promise<void> {

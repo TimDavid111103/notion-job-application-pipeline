@@ -109,6 +109,33 @@ export const FOOTER_LINK_MARKERS = [
 
 const FOOTER_LINK_CONTEXT_WINDOW = 160;
 
+/**
+ * Cross-sell / recommendation sections that job boards append after the real
+ * posting (Handshake: "Similar Jobs", "Alumni in similar roles"). Everything
+ * from the first such heading onward is chrome and is dropped.
+ */
+export const RECOMMENDATION_HEADINGS = [
+  "Similar Jobs",
+  "Related Jobs",
+  "Recommended Jobs",
+  "Recommended for you",
+  "Jobs you may be interested in",
+  "More jobs at",
+  "Alumni in similar roles",
+  "People also viewed",
+] as const;
+
+/**
+ * Applicant-specific chrome injected when viewing a posting while logged in
+ * (Handshake profile-match banners and the "message the hiring team" CTA).
+ * These are not part of the posting and read as noise in the tracker.
+ */
+export const APPLICANT_NOISE_LINE_PATTERNS: RegExp[] = [
+  /^.*\byou match all qualifications\b.*$/gim,
+  /^.*\bmatching is based on your profile\b.*$/gim,
+  /^.*\bupdate profile\b.*$/gim,
+];
+
 const ALL_BOUNDARY_LABELS = [...METADATA_LABELS, ...SECTION_HEADINGS].sort(
   (a, b) => b.length - a.length
 );
@@ -145,6 +172,47 @@ export function stripFooterContent(text: string): string {
   }
 
   return text.slice(0, cutAt).trim();
+}
+
+/** Cut everything from the first recommendation/cross-sell heading onward. */
+export function stripRecommendationSections(text: string): string {
+  let cutAt = text.length;
+  for (const heading of RECOMMENDATION_HEADINGS) {
+    const re = new RegExp(`^#{1,6}\\s*${escapeRegex(heading)}\\b.*$`, "im");
+    const match = re.exec(text);
+    if (match && match.index < cutAt) cutAt = match.index;
+  }
+  return text.slice(0, cutAt).trim();
+}
+
+/**
+ * Remove applicant-specific CTA/profile-match lines and the "message the hiring
+ * team" block (from that line up to the next heading or end of document).
+ */
+export function stripApplicantNoise(text: string): string {
+  let out = text;
+  for (const re of APPLICANT_NOISE_LINE_PATTERNS) out = out.replace(re, "");
+  out = out.replace(/^.*\bmessage the hiring team\b[\s\S]*?(?=^#{1,6}\s|$(?![\s\S]))/gim, "");
+  return out;
+}
+
+/**
+ * Drop heading lines that have no body content before the next heading or the
+ * end of the document — fixes empty section artifacts left by lazy-loaded or
+ * stripped content (general across ATS hosts).
+ */
+export function dropEmptyHeadings(text: string): string {
+  const lines = text.split("\n");
+  const isHeading = (line: string) => /^#{1,6}\s+\S/.test(line.trim());
+  const keep = lines.map((line, i) => {
+    if (!isHeading(line)) return true;
+    for (let j = i + 1; j < lines.length; j++) {
+      if (isHeading(lines[j])) break;
+      if (lines[j].trim()) return true;
+    }
+    return false;
+  });
+  return lines.filter((_, i) => keep[i]).join("\n");
 }
 
 /** Insert boundaries where ATS UIs concatenate labels and values without spaces. */
@@ -357,6 +425,7 @@ export function formatJobDescriptionPlain(body: string): string {
   if (!text) return "## Job Description\n\n";
   try {
     text = stripFooterContent(text);
+    text = stripRecommendationSections(text);
   } catch {
     /* keep raw */
   }
@@ -378,12 +447,19 @@ function safeFormatStep(text: string, step: (value: string) => string): string {
  * when a step fails or formatting would discard most of the extracted content.
  */
 export function formatJobDescriptionMarkdown(body: string): string {
-  const raw = body.trim();
-  if (!raw) return "## Job Description\n\n";
+  const trimmed = body.trim();
+  if (!trimmed) return "## Job Description\n\n";
+
+  // Strip page chrome first so the fallback threshold below is measured against
+  // real posting content, not recommendation/CTA noise.
+  let base = trimmed;
+  base = safeFormatStep(base, stripFooterContent);
+  base = safeFormatStep(base, stripRecommendationSections);
+  base = safeFormatStep(base, stripApplicantNoise);
+  const raw = base.trim() || trimmed;
 
   try {
     let text = raw;
-    text = safeFormatStep(text, stripFooterContent);
     text = safeFormatStep(text, stripDuplicateTitleHeading);
     text = safeFormatStep(text, stripNavNoiseText);
     text = safeFormatStep(text, promoteAboutHeadings);
@@ -396,6 +472,7 @@ export function formatJobDescriptionMarkdown(body: string): string {
     text = safeFormatStep(text, splitIntoParagraphs);
     text = safeFormatStep(text, bulletizeSectionBlocks);
     text = safeFormatStep(text, promoteInlineBullets);
+    text = safeFormatStep(text, dropEmptyHeadings);
     text = safeFormatStep(text, normalizeMarkdownWhitespace);
 
     const formatted = `## Job Description\n\n${text}`;

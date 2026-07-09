@@ -60,10 +60,13 @@ function testIsDeletableFailure(): void {
   assert.equal(isDeletableFailure("dns_failure"), true);
   assert.equal(isDeletableFailure("posting_closed"), true);
   assert.equal(isDeletableFailure("missing_url"), true);
-  assert.equal(isDeletableFailure("login_required"), true);
   assert.equal(isDeletableFailure("empty_content"), true);
-  assert.equal(isDeletableFailure("captcha"), true);
   assert.equal(isDeletableFailure("timeout"), true);
+  assert.equal(isDeletableFailure("navigation_error"), true);
+  assert.equal(isDeletableFailure("non_english"), true);
+  // Transient/auth failures must NOT delete the tracker row.
+  assert.equal(isDeletableFailure("login_required"), false);
+  assert.equal(isDeletableFailure("captcha"), false);
 }
 
 function testNormalizeScrapeUrl(): void {
@@ -110,9 +113,23 @@ function testClassifyPageFailure(): void {
   assert.equal(form, "empty_content");
 }
 
+function testClassifyPageFailureWorkdaySignInNav(): void {
+  const workdayPage = {
+    url: () =>
+      "https://resolvetech.wd1.myworkdayjobs.com/en-US/RTS/job/ML-Engineer_R1191",
+  } as Parameters<typeof classifyPageFailure>[0];
+  const body =
+    "Skip to main content\nRTS Careers\nSign In\nHomepage\nSearch for Jobs\n" +
+    "Senior ML Engineer\nResponsibilities:\n• Develop machine learning models and algorithms to address business needs.\n" +
+    "• Collaborate with data scientists and software engineers.\n".repeat(3);
+  const result = classifyPageFailure(workdayPage, null, body);
+  assert.equal(result, null);
+}
+
 testIsEmptyPageMarkdown();
 testParseTrackerRows();
 testIsDeletableFailure();
 testNormalizeScrapeUrl();
 testClassifyPageFailure();
+testClassifyPageFailureWorkdaySignInNav();
 console.log("job-description tests: ok");

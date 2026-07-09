@@ -15,7 +15,7 @@ export const HANDSHAKE_LOGGED_IN = /joinhandshake\.com\/(job-search|jobs\/)/i;
 export const SEARCH_TERMS = ["Junior AI Engineer", "Agentic AI"];
 
 export function jobSearchInput(page: Page) {
-  return page.locator('input[name="query"]');
+  return page.locator('input[name="query"]:not([data-hidden="true"])');
 }
 
 export function isHandshakeLoggedIn(url: string, title: string): boolean {

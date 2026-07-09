@@ -14,7 +14,8 @@ export type BrokenReason =
   | "empty_content"
   | "posting_closed"
   | "navigation_error"
-  | "missing_url";
+  | "missing_url"
+  | "non_english";
 
 const BROKEN_REASONS = new Set<string>([
   "404",
@@ -26,6 +27,7 @@ const BROKEN_REASONS = new Set<string>([
   "posting_closed",
   "navigation_error",
   "missing_url",
+  "non_english",
 ]);
 
 export interface JobsNeedingDescriptionsFile {
@@ -180,9 +182,9 @@ function parseResultItem(value: unknown, file: string, index: number): ScrapeRes
     if (error === null) {
       throw new ScrapeArtifactError(`${file}: items[${index}] with status "broken" must include error`);
     }
-    if (!deletable) {
-      throw new ScrapeArtifactError(`${file}: items[${index}] with status "broken" must have deletable: true`);
-    }
+    // `deletable` is derived from the failure reason (see isDeletableFailure).
+    // Transient failures (login_required, captcha) stay non-deletable so a
+    // missing session never deletes a valid posting.
   }
 
   return {

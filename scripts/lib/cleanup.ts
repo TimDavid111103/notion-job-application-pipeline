@@ -12,6 +12,11 @@ export const TEMPORARY_DATA_BASENAMES = new Set([
   "jobs-needing-descriptions.json",
   "notion-scrape-queue.json",
   "scrape-results.json",
+  "jobs-ready-to-apply.json",
+  "notion-fill-queue.json",
+  "fill-session.json",
+  "url-health-results.json",
+  "fill-results.json",
 ]);
 
 /** True for explicit temp artifacts and aggregator scratch-pad naming conventions. */

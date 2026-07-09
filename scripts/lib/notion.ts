@@ -9,12 +9,23 @@ export const NOTION_DATA_SOURCE_ID = "32f1de14-69d8-8016-9135-000ba274e2bd";
 /** Select property — empty means no match assigned yet (options: High, Medium, Low). */
 export const JOB_MATCH_PROPERTY = "Job Match";
 
+/** Application lifecycle select — options discovered via MCP get_database. */
+export const STATUS_PROPERTY = "Status";
+
+export const TERMINAL_STATUSES = ["Invalid", "Rejected", "Applied"] as const;
+export type TerminalStatus = (typeof TERMINAL_STATUSES)[number];
+
+export const IN_PROGRESS_STATUS = "In Progress";
+export const NOT_STARTED_STATUS = "Not Started";
+
 export interface TrackerRow {
   pageId: string;
   company: string;
   role: string;
   jobUrl: string;
   jobMatch?: string;
+  status?: string;
+  dateAdded?: string;
 }
 
 export { normalizeJobUrl };
@@ -81,6 +92,13 @@ function selectProp(prop: unknown): string {
   return name ?? "";
 }
 
+function dateProp(prop: unknown): string {
+  if (typeof prop === "string") return prop;
+  if (!prop || typeof prop !== "object") return "";
+  const start = (prop as { date?: { start?: string } | null }).date?.start;
+  return start ?? "";
+}
+
 function pageIdFromRow(row: Record<string, unknown>): string {
   const id = row.id ?? row.page_id;
   return typeof id === "string" ? id : "";
@@ -111,8 +129,42 @@ export function parseTrackerRows(data: unknown): TrackerRow[] {
       role: plainText(props.Role),
       jobUrl: urlProp(props["Job URL"]),
       jobMatch: selectProp(props[JOB_MATCH_PROPERTY]),
+      status: selectProp(props[STATUS_PROPERTY]),
+      dateAdded: dateProp(props["Date Added"]),
     };
   });
+}
+
+/** True when Status is Invalid, Rejected, or Applied. */
+export function isTerminalStatus(status: string | undefined): boolean {
+  if (!status) return false;
+  return (TERMINAL_STATUSES as readonly string[]).includes(status);
+}
+
+/** MCP query_database filter for jobs eligible to fill (step 4). */
+export function buildEligibleJobsFilter(): Record<string, unknown> {
+  return {
+    and: [
+      { property: JOB_MATCH_PROPERTY, select: { is_not_empty: true } },
+      {
+        or: [
+          { property: STATUS_PROPERTY, select: { is_empty: true } },
+          { property: STATUS_PROPERTY, select: { equals: NOT_STARTED_STATUS } },
+          { property: STATUS_PROPERTY, select: { equals: IN_PROGRESS_STATUS } },
+        ],
+      },
+    ],
+  };
+}
+
+/** Drop rows with terminal Status even if MCP filter missed them. */
+export function filterEligibleTrackerRows(rows: TrackerRow[]): TrackerRow[] {
+  return rows.filter((row) => row.jobUrl.trim() && !isTerminalStatus(row.status));
+}
+
+/** MCP update_database_entry properties payload for Status changes. */
+export function statusUpdatePayload(status: string): Record<string, string> {
+  return { [STATUS_PROPERTY]: status };
 }
 
 export function prepareNotionPayloads(jobs: SourcedJob[]): Array<{

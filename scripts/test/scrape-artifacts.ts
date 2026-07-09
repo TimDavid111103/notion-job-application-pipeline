@@ -12,13 +12,16 @@ import {
   ScrapeArtifactError,
 } from "../lib/scrape-artifacts.js";
 import {
+  dropEmptyHeadings,
   formatJobDescriptionMarkdown,
   formatJobDescriptionPlain,
   promoteColonSectionHeadings,
   promoteSectionHeadings,
   repairLabelBoundaries,
+  stripApplicantNoise,
   stripDuplicateTitleHeading,
   stripFooterContent,
+  stripRecommendationSections,
 } from "../lib/scrape-markdown.js";
 
 function testRepairLabelBoundaries(): void {
@@ -94,6 +97,51 @@ function testFormatJobDescriptionMarkdown(): void {
   assert.doesNotMatch(md, /Powered by Ashby/);
 }
 
+function testStripRecommendationSections(): void {
+  const text =
+    "#### Job description\n\nWe are hiring an engineer.\n\n#### Similar Jobs\n\n#### AI Engineer\n\nSome other posting.";
+  assert.equal(
+    stripRecommendationSections(text),
+    "#### Job description\n\nWe are hiring an engineer."
+  );
+
+  // Handshake renders "Alumni in similar roles" as an h2.
+  const withAlumni = "Real body content here.\n\n### Alumni in similar roles\n\nBenedicto Elpidius";
+  assert.equal(stripRecommendationSections(withAlumni), "Real body content here.");
+
+  // No recommendation headings — unchanged.
+  const clean = "#### Job description\n\nJust the posting.";
+  assert.equal(stripRecommendationSections(clean), clean);
+}
+
+function testStripApplicantNoise(): void {
+  const text =
+    "#### What they're looking for\n\nYou match all qualifications. Nice!\nMatching is based on your profile. Update profile.\n\n#### What this job offers\n\nGreat benefits.";
+  const out = stripApplicantNoise(text);
+  assert.doesNotMatch(out, /you match all qualifications/i);
+  assert.doesNotMatch(out, /matching is based on your profile/i);
+  assert.match(out, /What this job offers/);
+
+  const cta =
+    "#### Offers\n\nGood pay.\n\nMessage the hiring team to ask questions.\nJane Doe\nDirector of Talent\n\n#### About the employer\n\nWe build things.";
+  const ctaOut = stripApplicantNoise(cta);
+  assert.doesNotMatch(ctaOut, /message the hiring team/i);
+  assert.doesNotMatch(ctaOut, /Jane Doe/);
+  assert.match(ctaOut, /About the employer/);
+}
+
+function testDropEmptyHeadings(): void {
+  const text =
+    "#### At a glance\n\nHybrid, Dallas.\n\n#### What they're looking for\n\n#### What this job offers\n\n- Benefits";
+  const out = dropEmptyHeadings(text);
+  assert.doesNotMatch(out, /What they're looking for/);
+  assert.match(out, /At a glance/);
+  assert.match(out, /What this job offers/);
+
+  // Trailing empty heading dropped.
+  assert.equal(dropEmptyHeadings("Body text.\n\n### Dangling"), "Body text.\n");
+}
+
 function testScrapeQueueSchema(): void {
   const file = buildScrapeQueueFile([
     {
@@ -135,6 +183,24 @@ function testScrapeResultsSchema(): void {
   assert.equal(parsed.summary.queued, 2);
   assert.equal(parsed.summary.ok, 1);
   assert.equal(parsed.summary.broken, 1);
+
+  // Transient failures stay non-deletable and must still validate.
+  const withTransient = buildScrapeResultsFile([
+    {
+      page_id: "page-3",
+      company: "Gamma",
+      role: "Engineer",
+      jobUrl: "https://app.joinhandshake.com/jobs/123",
+      status: "broken",
+      markdown: null,
+      error: "login_required",
+      deletable: false,
+    },
+  ]);
+  const parsedTransient = parseScrapeResultsFile(withTransient);
+  assert.equal(parsedTransient.summary.broken, 1);
+  assert.equal(parsedTransient.summary.deletable, 0);
+
   assert.throws(
     () =>
       parseScrapeResultsFile({
@@ -160,6 +226,9 @@ testPromoteColonSectionHeadings();
 testFormatJobDescriptionPlain();
 testFormatJobDescriptionMarkdownPlainProse();
 testFormatJobDescriptionMarkdown();
+testStripRecommendationSections();
+testStripApplicantNoise();
+testDropEmptyHeadings();
 testScrapeQueueSchema();
 testScrapeResultsSchema();
 testJobsNeedingDescriptionsSchema();

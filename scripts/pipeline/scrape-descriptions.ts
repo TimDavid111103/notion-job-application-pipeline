@@ -4,7 +4,14 @@
 import { access } from "node:fs/promises";
 import { constants as fsConstants } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
-import { closeBrowser, createContext, launchBrowser } from "../lib/browser.js";
+import {
+  aggregatorForUrl,
+  closeBrowser,
+  createContext,
+  launchBrowser,
+  type Aggregator,
+} from "../lib/browser.js";
+import type { Page } from "playwright";
 import {
   getScrapeDelayMs,
   getScrapeLimit,
@@ -50,15 +57,29 @@ async function main(): Promise<void> {
   }
 
   const browser = await launchBrowser();
-  const context = await createContext(browser);
-  const page = await context.newPage();
   const results: ScrapeResultItem[] = [];
   const delay = getScrapeDelayMs();
+
+  // One page per auth profile, created on demand. Public ATS hosts (Greenhouse,
+  // Lever, Ashby, Workday, …) use the default no-auth page; Handshake URLs reuse
+  // the `.auth/handshake.json` session shared with the job-aggregators skill.
+  const pageCache = new Map<Aggregator | "public", Page>();
+  const getPage = async (aggregator: Aggregator | undefined): Promise<Page> => {
+    const key = aggregator ?? "public";
+    const cached = pageCache.get(key);
+    if (cached) return cached;
+    const context = await createContext(browser, aggregator);
+    const page = await context.newPage();
+    pageCache.set(key, page);
+    if (aggregator) console.log(`Loaded ${aggregator} session for authenticated scrapes.`);
+    return page;
+  };
 
   try {
     for (let i = 0; i < toProcess.length; i++) {
       const row = toProcess[i]!;
       console.log(`[${i + 1}/${toProcess.length}] ${row.company}: ${row.role}`);
+      const page = await getPage(aggregatorForUrl(row.jobUrl));
       const outcome = await scrapeJobDescription(page, row.jobUrl);
       results.push({
         page_id: row.page_id,

@@ -13,6 +13,7 @@
 | MCP query / append / delete | [notion-mcp-workflows.md](notion-mcp-workflows.md) |
 | Queue + results JSON, `data/` artifacts | [scrape-data-formats.md](scrape-data-formats.md) |
 | URL extraction heuristics | [job-url-extraction.md](job-url-extraction.md) |
+| Dead URL policy | [url-health-policy.md](url-health-policy.md) |
 | Env vars and scrape limits | [environment-variables.md](environment-variables.md) |
 | Run log filename + template | [run-log-template.md](run-log-template.md) |
 | Topic pointer index | [topic-pointer-index.md](topic-pointer-index.md) |

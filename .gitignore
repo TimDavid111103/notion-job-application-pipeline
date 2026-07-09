@@ -11,5 +11,15 @@ data/notion-tracker-snapshot.json
 data/jobs-needing-descriptions.json
 data/notion-scrape-queue.json
 data/scrape-results.json
+data/jobs-ready-to-apply.json
+data/notion-fill-queue.json
+data/fill-session.json
+data/url-health-results.json
+data/fill-results.json
 .cursor/skills/job-aggregators/logs/*.md
 .cursor/skills/job-description-scraper/logs/*.md
+.cursor/skills/job-application-fill/logs/*.md
+.cursor/skills/job-application-fill/references/personal-information.md
+.cursor/skills/job-application-fill/references/projects.md
+.cursor/skills/job-application-fill/references/answers.md
+.cursor/skills/job-application-fill/references/documents/

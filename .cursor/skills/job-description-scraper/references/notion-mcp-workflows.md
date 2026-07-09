@@ -82,7 +82,8 @@ Call `append_content` per row. Batch manually if needed; there is no batch appen
 
 ## Step 8 — Delete dead URLs
 
-Read `data/scrape-results.json`. For each element in `items` with `"status": "broken"`:
+Read `data/scrape-results.json`. For each element in `items` with `"status": "broken"`
+**and** `"deletable": true`:
 
 ```json
 { "page_id": "…" }
@@ -90,8 +91,11 @@ Read `data/scrape-results.json`. For each element in `items` with `"status": "br
 
 Call `delete_database_entry`. Use `dry_run: true` during development.
 
-All broken scrape outcomes are deleted — `404`, `dns_failure`, `posting_closed`,
-`login_required`, `captcha`, `empty_content`, `timeout`, `navigation_error`, `missing_url`.
+**Only delete `deletable: true` rows.** Deletable failures mean the posting is
+genuinely gone or unusable: `404`, `dns_failure`, `posting_closed`, `empty_content`,
+`non_english`, `timeout`, `navigation_error`, `missing_url`. Transient/auth failures
+(`login_required`, `captcha`) are `deletable: false` — leave those rows in the tracker
+and re-run after refreshing the relevant session (e.g. `npm run auth:handshake`).
 Implementation: `isDeletableFailure()` in `scripts/lib/job-description.ts`.
 
 ## Tool reference

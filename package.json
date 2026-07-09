@@ -24,7 +24,16 @@
     "write:scrape-queue": "tsx scripts/pipeline/write-scrape-queue.ts",
     "run-log:basename:scraper": "tsx scripts/pipeline/run-log-basename-scraper.ts",
     "test:job-description": "tsx scripts/test/job-description.ts",
-    "test:scrape-artifacts": "tsx scripts/test/scrape-artifacts.ts"
+    "test:workday": "tsx scripts/test/workday.ts",
+    "test:language": "tsx scripts/test/language.ts",
+    "test:scrape-artifacts": "tsx scripts/test/scrape-artifacts.ts",
+    "write:jobs-ready-to-apply": "tsx scripts/pipeline/write-jobs-ready-to-apply.ts",
+    "write:fill-queue": "tsx scripts/pipeline/write-fill-queue.ts",
+    "check:url-health": "tsx scripts/pipeline/check-url-health.ts",
+    "fill:application": "tsx scripts/pipeline/fill-application.ts",
+    "run-log:basename:fill": "tsx scripts/pipeline/run-log-basename-fill.ts",
+    "test:fill-references": "tsx scripts/test/fill-references.ts",
+    "test:url-health": "tsx scripts/test/url-health.ts"
   },
   "dependencies": {
     "playwright": "^1.52.0"
