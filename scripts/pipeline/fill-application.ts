@@ -29,6 +29,18 @@ import {
   type FillResultItem,
 } from "../lib/fill-artifacts.js";
 
+/** Opt-in only — opens the Playwright inspector overlay. Default off; use chat handoff instead. */
+function shouldAutoPause(): boolean {
+  return process.env.AUTO_PAUSE === "1";
+}
+
+/** Leave the headed browser open after pre-fill so the user can finish manually. Default on when headed. */
+function shouldKeepBrowserOpen(): boolean {
+  if (process.env.KEEP_BROWSER_OPEN === "0") return false;
+  if (process.env.KEEP_BROWSER_OPEN === "1") return true;
+  return process.env.HEADED === "1";
+}
+
 async function main(): Promise<void> {
   const sessionRaw = JSON.parse(await readFile(FILL_SESSION_FILE, "utf8")) as unknown;
   const session = parseFillSessionFile(sessionRaw);
@@ -73,13 +85,23 @@ async function main(): Promise<void> {
       results.push(result);
       printHandoffSummary(result);
 
-      if (process.env.AUTO_PAUSE !== "0") {
-        console.log("Browser paused — complete remaining fields and press Resume in Playwright inspector, or close tab to continue.");
+      if (shouldAutoPause()) {
+        console.log(
+          "AUTO_PAUSE=1 — Playwright inspector open. Press Resume to continue to the next job."
+        );
         await page.pause();
+      } else {
+        console.log(
+          "Pre-fill complete. Finish remaining fields in the browser, then tell the agent in chat: Applied, Skip, Mark Invalid, or Keep In Progress."
+        );
       }
     }
   } finally {
-    await closeBrowser(browser);
+    if (shouldKeepBrowserOpen()) {
+      console.log("Browser left open — close the window when you are done.");
+    } else {
+      await closeBrowser(browser);
+    }
   }
 
   const file = buildFillResultsFile(results);

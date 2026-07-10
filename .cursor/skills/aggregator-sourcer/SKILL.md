@@ -1,0 +1,184 @@
+---
+name: aggregator-sourcer
+description: Sources junior / new-grad AI and software-engineering jobs from Wobo, Handshake, and Jack & Jill, then dedupes against the Notion Application Tracker and logs the new roles. Skips only obvious mismatches (light, keep-when-in-doubt). Use when sourcing, refreshing, or logging job postings, or when the user mentions these aggregators, data/sourced-jobs.md, or the Notion tracker.
+disable-model-invocation: true
+---
+
+# Aggregator Sourcer
+
+Orchestration runbook — follow steps 0–11 in order. Full reference catalog:
+[references/reference-index.md](references/reference-index.md)
+
+Playwright npm scripts at repo root (not browser MCP tabs). Headless by default; re-auth only
+when step 0 fails.
+
+## Hard rule — `data/` temp cleanup
+
+**Run `npm run cleanup:data` at step 5 and again at step 9. Do not skip either pass.**
+
+- Deletes **everything** under `data/` except `sourced-jobs.md` and `.gitkeep`.
+- That includes snapshot/payload JSON, `mcp-*` files and folders, queues, scratch pads, and
+  any other leftover files or directories.
+- After each pass, `data/` must contain only `sourced-jobs.md` and `.gitkeep`.
+- If cleanup prints removals, confirm those paths are gone before continuing.
+
+→ [scratch-data-formats.md](references/scratch-data-formats.md) — runtime artifacts
+
+## Phase checklist
+
+- [ ] 0 — Sessions verified
+- [ ] 1 — Setup (first run only)
+- [ ] 2 — Scratch file ensured
+- [ ] 3 — Aggregators sourced
+- [ ] 3b — Jack inbox + Saved emptied
+- [ ] 4 — Scratch verified
+- [ ] 5 — **All temp `data/` files cleared (before logging)**
+- [ ] 6 — Tracker snapshot saved
+- [ ] 7 — Notion payloads prepared
+- [ ] 8 — Rows logged via MCP
+- [ ] 9 — **All temp `data/` files cleared (after logging)**
+- [ ] 10 — Results reported
+- [ ] 11 — Run log written
+
+---
+
+## 0. Preflight — sessions
+
+Confirm `.auth/` sessions reach all three aggregators. Re-auth only the one that fails,
+then re-run.
+
+```bash
+npm run test:access
+```
+
+→ [auth-and-selectors.md](references/auth-and-selectors.md)
+
+---
+
+## 1. Setup (first run only)
+
+Install dependencies, Playwright, session storage, and `data/`.
+
+```bash
+bash .cursor/skills/aggregator-sourcer/scripts/setup.sh
+```
+
+---
+
+## 2. Ensure scratch file
+
+`source:all` calls `ensureScratchFile()` before aggregators run — no separate command.
+Prepares the rolling scratch window used for in-run dedup.
+
+→ [scratch-data-formats.md](references/scratch-data-formats.md)
+
+---
+
+## 3. Source aggregators
+
+Capture new postings from Wobo, Handshake, and Jack & Jill into the scratch file.
+
+```bash
+npm run source:all
+```
+
+→ [aggregator-sourcing-spec.md](references/aggregator-sourcing-spec.md)
+
+### 3b. Jack clean-out
+
+After sourcing, empty Jack inbox and Saved kanban so nothing carries over.
+
+```bash
+npx tsx scripts/sources/jack-empty.ts
+```
+
+→ [jack-kanban-cleanup.md](references/jack-kanban-cleanup.md)
+
+---
+
+## 4. Verify scratch
+
+Confirm captured rows match the data contract. Report **total rows**, **unique jobs**
+(distinct `jobKey` — can be fewer than rows), and **new this run** (today's date).
+
+→ [scratch-data-formats.md](references/scratch-data-formats.md)
+
+---
+
+## 5. Clear all temporary `data/` files (before logging) — required
+
+**Do this before any Notion snapshot or payload work.** Wipe every temporary artifact from
+prior runs and any leftover dumps so logging starts with a clean `data/` directory.
+
+```bash
+npm run cleanup:data
+```
+
+**Done when:** `data/` contains only `sourced-jobs.md` and `.gitkeep`. Nothing else.
+
+→ [scratch-data-formats.md](references/scratch-data-formats.md) — runtime artifacts
+
+---
+
+## 6. Tracker snapshot (failsafe dedup input)
+
+Query the full Notion Application Tracker via MCP and save the response for dedup.
+
+→ [notion-tracker-logging.md](references/notion-tracker-logging.md) — query workflow
+
+---
+
+## 7. Prepare Notion payloads
+
+Dedupe **today's** scratch rows against the snapshot; write MCP-ready rows to `data/notion-payloads.json`.
+Older scratch rows are for sourcing dedup only.
+
+```bash
+npm run log:notion:deduped
+```
+
+→ [notion-tracker-logging.md](references/notion-tracker-logging.md) — payload file
+
+---
+
+## 8. Log via MCP
+
+Insert prepared payloads into the tracker via `user-notion` MCP.
+
+→ [notion-tracker-logging.md](references/notion-tracker-logging.md) — insert workflow
+
+---
+
+## 9. Clear all temporary `data/` files (after logging) — required
+
+**Do this after MCP insert succeeds (or after you stop logging).** Remove every temporary
+file this run created — snapshot, payloads, MCP helper dumps, queues, folders — so only the
+permanent scratch remains.
+
+```bash
+npm run cleanup:data
+```
+
+**Done when:** `data/` contains only `sourced-jobs.md` and `.gitkeep`. Nothing else.
+If anything else remains, run cleanup again or delete it manually before reporting.
+
+→ [scratch-data-formats.md](references/scratch-data-formats.md) — runtime artifacts
+
+---
+
+## 10. Report results
+
+Summarize per-aggregator counts, scratch rows vs unique jobs, Notion dedup drops, rows
+logged, and any failures. Confirm step 9 left `data/` clean.
+
+---
+
+## 11. Run log
+
+Write a run summary — required even for partial or failed runs.
+
+```bash
+npm run run-log:basename
+```
+
+→ [run-log-template.md](references/run-log-template.md)

@@ -51,9 +51,9 @@ function broken(error: BrokenReason): UrlHealthOutcome {
   return { status: "broken", error, deletable: isDeletableFailure(error) };
 }
 
-function isWorkdayNavLoginFalsePositive(page: Page, bodyText: string): boolean {
+function isWorkdayUrlLoginFalsePositive(pageUrl: string, bodyText: string): boolean {
   try {
-    if (!new URL(page.url()).hostname.toLowerCase().includes("myworkdayjobs.com")) {
+    if (!new URL(pageUrl).hostname.toLowerCase().includes("myworkdayjobs.com")) {
       return false;
     }
   } catch {
@@ -67,22 +67,22 @@ function isWorkdayNavLoginFalsePositive(page: Page, bodyText: string): boolean {
   );
 }
 
-export function classifyPageFailure(
-  page: Page,
-  response: Response | null,
+/** Classify from URL + HTTP status + body text (browser or fetch). */
+export function classifyBodyFailure(
+  pageUrl: string,
+  status: number,
   bodyText: string
 ): BrokenReason | null {
-  const status = response?.status() ?? 0;
   if (status === 404 || status === 410) return "404";
 
-  const title = (page.url() + " " + bodyText.slice(0, 2000)).toLowerCase();
+  const title = (pageUrl + " " + bodyText.slice(0, 2000)).toLowerCase();
   if (CLOSED_PATTERNS.some((re) => re.test(bodyText.slice(0, 4000)))) return "posting_closed";
   if (APPLICATION_FORM_PATTERNS.filter((re) => re.test(bodyText.slice(0, 4000))).length >= 2) {
     return "empty_content";
   }
   if (CAPTCHA_PATTERNS.some((re) => re.test(title))) return "captcha";
   if (
-    !isWorkdayNavLoginFalsePositive(page, bodyText) &&
+    !isWorkdayUrlLoginFalsePositive(pageUrl, bodyText) &&
     LOGIN_PATTERNS.some((re) => re.test(bodyText.slice(0, 1500)))
   ) {
     return "login_required";
@@ -90,6 +90,14 @@ export function classifyPageFailure(
 
   if (bodyText.trim().length < MIN_BODY_CHARS) return "empty_content";
   return null;
+}
+
+export function classifyPageFailure(
+  page: Page,
+  response: Response | null,
+  bodyText: string
+): BrokenReason | null {
+  return classifyBodyFailure(page.url(), response?.status() ?? 0, bodyText);
 }
 
 export function getUrlHealthTimeoutMs(): number {
@@ -128,6 +136,91 @@ function normalizeHealthUrl(url: string): string {
     /* keep original */
   }
   return url;
+}
+
+function stripHtmlToText(html: string): string {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function extractHtmlTitle(html: string): string {
+  const m = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  return (m?.[1] ?? "").replace(/\s+/g, " ").trim();
+}
+
+/**
+ * Ashby/Greenhouse-style shells return HTTP 200 with almost no body text until JS runs.
+ * Treat as reachable when status is OK and a real title (or pre-JS label) is present.
+ */
+export function isHttpSpaShellReachable(status: number, html: string, bodyText: string): boolean {
+  if (status < 200 || status >= 400) return false;
+  const spaHint =
+    /enable javascript|you need to enable javascript|id=["']root["']|__NEXT_DATA__|ashby/i.test(
+      html
+    );
+  if (!spaHint) return false;
+  const title = extractHtmlTitle(html);
+  if (title.length >= 8 && !/^error|not found|404/i.test(title)) return true;
+  const withoutJsNudge = bodyText.replace(/you need to enable javascript.*/i, "").trim();
+  return withoutJsNudge.length >= 20;
+}
+
+/**
+ * Fast URL health via fetch — no Playwright.
+ * Prefer for public ATS pages; Handshake/auth hosts may need browser mode.
+ */
+export async function checkUrlHealthHttp(rawUrl: string): Promise<UrlHealthOutcome> {
+  const url = normalizeHealthUrl(cleanJobUrl(rawUrl));
+  if (!url) return broken("missing_url");
+
+  const timeout = getUrlHealthTimeoutMs();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeout);
+
+  try {
+    const response = await fetch(url, {
+      redirect: "follow",
+      signal: controller.signal,
+      headers: {
+        "user-agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        accept: "text/html,application/xhtml+xml",
+      },
+    });
+    const html = await response.text();
+    const bodyText = stripHtmlToText(html);
+    if (isHttpSpaShellReachable(response.status, html, bodyText)) {
+      return { status: "ok", deletable: false };
+    }
+    const failure = classifyBodyFailure(response.url || url, response.status, bodyText);
+    if (failure) return broken(failure);
+    return { status: "ok", deletable: false };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    const cause =
+      err instanceof Error && err.cause instanceof Error ? err.cause.message : "";
+    const combined = `${message} ${cause}`;
+    if (/ENOTFOUND|ERR_NAME_NOT_RESOLVED|getaddrinfo/i.test(combined)) {
+      return broken("dns_failure");
+    }
+    if (/abort|timeout/i.test(combined)) return broken("timeout");
+    return broken("navigation_error");
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export type UrlHealthMode = "http" | "browser" | "auto";
+
+/** Default `http` — browser only when URL_HEALTH_MODE=browser|auto and launch works. */
+export function getUrlHealthMode(): UrlHealthMode {
+  const raw = (process.env.URL_HEALTH_MODE ?? "http").toLowerCase();
+  if (raw === "browser" || raw === "auto" || raw === "http") return raw;
+  return "http";
 }
 
 /** Navigate to a URL and classify whether the posting is reachable (no extraction). */

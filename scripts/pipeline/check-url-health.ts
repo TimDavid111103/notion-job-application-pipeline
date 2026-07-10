@@ -1,5 +1,7 @@
 /**
  * Headless URL health preflight on fill queue items.
+ * Default mode is HTTP fetch (no Playwright) — fast and sandbox-safe.
+ * Set URL_HEALTH_MODE=browser for Playwright navigation (Handshake, etc.).
  */
 import { readFile, writeFile } from "node:fs/promises";
 import {
@@ -9,7 +11,7 @@ import {
   launchBrowser,
   type Aggregator,
 } from "../lib/browser.js";
-import type { Page } from "playwright";
+import type { Browser, Page } from "playwright";
 import { sleep } from "../lib/job-description.js";
 import { FILL_QUEUE_FILE, URL_HEALTH_RESULTS_FILE } from "../lib/paths.js";
 import {
@@ -20,8 +22,10 @@ import {
 } from "../lib/fill-artifacts.js";
 import {
   checkUrlHealth,
+  checkUrlHealthHttp,
   getUrlHealthDelayMs,
   getUrlHealthLimit,
+  getUrlHealthMode,
 } from "../lib/url-health.js";
 
 async function main(): Promise<void> {
@@ -32,6 +36,7 @@ async function main(): Promise<void> {
   const queue = parseFillQueueFile(raw, queueFile);
   const limit = getUrlHealthLimit();
   const toProcess = queue.items.slice(0, Number.isFinite(limit) ? limit : queue.items.length);
+  const mode = getUrlHealthMode();
 
   if (toProcess.length === 0) {
     await writeFile(
@@ -43,27 +48,16 @@ async function main(): Promise<void> {
     return;
   }
 
-  const browser = await launchBrowser();
+  console.log(`URL health mode: ${mode} (${toProcess.length} URL(s))`);
+
   const results: UrlHealthResultItem[] = [];
   const delay = getUrlHealthDelayMs();
-  const pageCache = new Map<Aggregator | "public", Page>();
 
-  const getPage = async (aggregator: Aggregator | undefined): Promise<Page> => {
-    const key = aggregator ?? "public";
-    const cached = pageCache.get(key);
-    if (cached) return cached;
-    const context = await createContext(browser, aggregator);
-    const page = await context.newPage();
-    pageCache.set(key, page);
-    return page;
-  };
-
-  try {
+  if (mode === "http") {
     for (let i = 0; i < toProcess.length; i++) {
       const row = toProcess[i]!;
       console.log(`[${i + 1}/${toProcess.length}] ${row.company}: ${row.role}`);
-      const page = await getPage(aggregatorForUrl(row.jobUrl));
-      const outcome = await checkUrlHealth(page, row.jobUrl);
+      const outcome = await checkUrlHealthHttp(row.jobUrl);
       results.push({
         page_id: row.page_id,
         company: row.company,
@@ -75,8 +69,68 @@ async function main(): Promise<void> {
       });
       if (i < toProcess.length - 1 && delay > 0) await sleep(delay);
     }
-  } finally {
-    await closeBrowser(browser);
+  } else {
+    let browser: Browser | undefined;
+    try {
+      browser = await launchBrowser();
+    } catch (err) {
+      if (mode === "auto") {
+        console.warn(
+          `Browser launch failed — falling back to HTTP mode.\n${err instanceof Error ? err.message : err}`
+        );
+        for (let i = 0; i < toProcess.length; i++) {
+          const row = toProcess[i]!;
+          console.log(`[${i + 1}/${toProcess.length}] ${row.company}: ${row.role}`);
+          const outcome = await checkUrlHealthHttp(row.jobUrl);
+          results.push({
+            page_id: row.page_id,
+            company: row.company,
+            role: row.role,
+            jobUrl: row.jobUrl,
+            status: outcome.status,
+            error: outcome.error ?? null,
+            deletable: outcome.deletable,
+          });
+          if (i < toProcess.length - 1 && delay > 0) await sleep(delay);
+        }
+      } else {
+        throw err;
+      }
+    }
+
+    if (browser) {
+      const pageCache = new Map<Aggregator | "public", Page>();
+      const getPage = async (aggregator: Aggregator | undefined): Promise<Page> => {
+        const key = aggregator ?? "public";
+        const cached = pageCache.get(key);
+        if (cached) return cached;
+        const context = await createContext(browser!, aggregator);
+        const page = await context.newPage();
+        pageCache.set(key, page);
+        return page;
+      };
+
+      try {
+        for (let i = 0; i < toProcess.length; i++) {
+          const row = toProcess[i]!;
+          console.log(`[${i + 1}/${toProcess.length}] ${row.company}: ${row.role}`);
+          const page = await getPage(aggregatorForUrl(row.jobUrl));
+          const outcome = await checkUrlHealth(page, row.jobUrl);
+          results.push({
+            page_id: row.page_id,
+            company: row.company,
+            role: row.role,
+            jobUrl: row.jobUrl,
+            status: outcome.status,
+            error: outcome.error ?? null,
+            deletable: outcome.deletable,
+          });
+          if (i < toProcess.length - 1 && delay > 0) await sleep(delay);
+        }
+      } finally {
+        await closeBrowser(browser);
+      }
+    }
   }
 
   const file = buildUrlHealthResultsFile(results);

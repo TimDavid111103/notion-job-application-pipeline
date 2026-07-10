@@ -4,10 +4,13 @@
  * Sessions persist in `.auth/{aggregator}.json` and reload on each headless run.
  * Auth scripts (headed) create/update these files once; sourcing reuses them.
  */
+import "./playwright-env.js";
+import { existsSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
+import { assertBrowserLaunchAllowed, ensurePlaywrightEnv } from "./playwright-env.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const REPO_ROOT = path.resolve(__dirname, "../..");
@@ -44,23 +47,73 @@ export async function ensureAuthDir(): Promise<void> {
   await mkdir(AUTH_DIR, { recursive: true });
 }
 
-export async function launchBrowser(options: LaunchOptions = {}): Promise<Browser> {
-  const headed = options.headed ?? process.env.HEADED === "1";
-  console.log(headed ? "Launching headed browser..." : "Launching headless browser...");
+function launchArgs(headed: boolean): string[] {
+  return headed
+    ? ["--start-maximized"]
+    : ["--disable-blink-features=AutomationControlled"];
+}
 
-  try {
-    // Prefer installed Chrome (better SPA compatibility); fall back to bundled Chromium.
-    return await chromium.launch({
-      channel: "chrome",
-      headless: !headed,
-      args: headed ? ["--start-maximized"] : ["--disable-blink-features=AutomationControlled"],
-    });
-  } catch {
-    return chromium.launch({
-      headless: !headed,
-      args: headed ? ["--start-maximized"] : ["--disable-blink-features=AutomationControlled"],
-    });
+function formatLaunchError(err: unknown): string {
+  if (!(err instanceof Error)) return String(err);
+  const log = (err as Error & { log?: string[] }).log;
+  const hint =
+    /EPERM|SIGSEGV|SIGABRT|Target page, context or browser has been closed/i.test(err.message) ||
+    (Array.isArray(log) && log.some((line) => /EPERM|SIGSEGV|SIGABRT/i.test(line)))
+      ? " Hint: run Playwright steps outside the Cursor sandbox (required_permissions: [\"all\"])."
+      : "";
+  return `${err.message.split("\n")[0]}${hint}`;
+}
+
+/**
+ * Launch order: system Chrome → bundled Chromium.
+ * Env bootstrap (arm64 host + real browser cache) runs first via playwright-env.
+ */
+export async function launchBrowser(options: LaunchOptions = {}): Promise<Browser> {
+  const env = ensurePlaywrightEnv();
+  assertBrowserLaunchAllowed();
+  const headed = options.headed ?? process.env.HEADED === "1";
+  const args = launchArgs(headed);
+  console.log(headed ? "Launching headed browser..." : "Launching headless browser...");
+  if (env.hostPlatform || env.browsersPath) {
+    console.log(
+      `Playwright env: host=${env.hostPlatform ?? "(default)"} browsers=${env.browsersPath ?? "(default)"}`
+    );
   }
+
+  const attempts: Array<{ label: string; opts: Parameters<typeof chromium.launch>[0] }> = [
+    { label: "channel=chrome", opts: { channel: "chrome", headless: !headed, args } },
+    { label: "bundled chromium", opts: { headless: !headed, args } },
+  ];
+
+  const errors: string[] = [];
+  for (const attempt of attempts) {
+    try {
+      const browser = await chromium.launch(attempt.opts);
+      console.log(`Browser launched via ${attempt.label}`);
+      return browser;
+    } catch (err) {
+      errors.push(`${attempt.label}: ${formatLaunchError(err)}`);
+    }
+  }
+
+  const exe = (() => {
+    try {
+      return chromium.executablePath();
+    } catch {
+      return "(unavailable)";
+    }
+  })();
+  const exeExists = typeof exe === "string" && exe !== "(unavailable)" && existsSync(exe);
+
+  throw new Error(
+    [
+      "Failed to launch Playwright browser.",
+      ...errors.map((e) => `  - ${e}`),
+      `  executablePath=${exe} exists=${exeExists}`,
+      "  Fix: npx playwright install chromium (outside sandbox), or install Google Chrome.",
+      '  Agent: re-run with required_permissions: ["all"].',
+    ].join("\n")
+  );
 }
 
 export async function createContext(

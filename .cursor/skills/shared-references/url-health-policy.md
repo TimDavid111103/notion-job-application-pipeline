@@ -1,6 +1,6 @@
 # URL Health Policy
 
-Single source of truth for dead/broken URL handling across **job-description-scraper** and **job-application-fill**.
+Single source of truth for dead/broken URL handling across **description-scraper** and **application-filler**.
 
 Implementation: `scripts/lib/url-health.ts`, `isDeletableFailure()` in `scripts/lib/scrape-artifacts.ts` (re-exported via `job-description.ts`).
 
@@ -23,8 +23,8 @@ Implementation: `scripts/lib/url-health.ts`, `isDeletableFailure()` in `scripts/
 
 | Skill | Step | Script |
 |-------|------|--------|
-| job-description-scraper | 5 scrape, 8 delete | `npm run scrape:descriptions` |
-| job-application-fill | 7 preflight, 8 delete | `npm run check:url-health` |
+| description-scraper | 5 scrape, 8 delete | `npm run scrape:descriptions` |
+| application-filler | 7 preflight, 8 delete | `npm run check:url-health` |
 
 ## Rule
 

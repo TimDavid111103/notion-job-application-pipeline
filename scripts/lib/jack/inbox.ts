@@ -12,7 +12,7 @@ import { JACK_INBOX } from "./auth.js";
 
 const PROMPTS_FILE = path.join(
   REPO_ROOT,
-  ".cursor/skills/job-aggregators/references/jack-inbox-prompts.md"
+  ".cursor/skills/aggregator-sourcer/references/jack-inbox-prompts.md"
 );
 
 async function loadPrompts(): Promise<string[]> {

@@ -1,5 +1,5 @@
 /**
- * Versioned schemas for job-application-fill runtime artifacts under `data/`.
+ * Versioned schemas for application-filler runtime artifacts under `data/`.
  */
 import { NOTION_DATABASE_ID, buildEligibleJobsFilter } from "./notion.js";
 import type { BrokenReason } from "./scrape-artifacts.js";

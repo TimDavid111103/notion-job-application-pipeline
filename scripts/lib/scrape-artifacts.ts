@@ -1,5 +1,5 @@
 /**
- * Versioned schemas for job-description-scraper runtime artifacts under `data/`.
+ * Versioned schemas for description-scraper runtime artifacts under `data/`.
  */
 import { NOTION_DATABASE_ID } from "./notion.js";
 

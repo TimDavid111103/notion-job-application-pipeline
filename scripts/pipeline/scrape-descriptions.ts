@@ -62,7 +62,7 @@ async function main(): Promise<void> {
 
   // One page per auth profile, created on demand. Public ATS hosts (Greenhouse,
   // Lever, Ashby, Workday, …) use the default no-auth page; Handshake URLs reuse
-  // the `.auth/handshake.json` session shared with the job-aggregators skill.
+  // the `.auth/handshake.json` session shared with the aggregator-sourcer skill.
   const pageCache = new Map<Aggregator | "public", Page>();
   const getPage = async (aggregator: Aggregator | undefined): Promise<Page> => {
     const key = aggregator ?? "public";

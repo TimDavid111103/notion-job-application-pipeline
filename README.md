@@ -2,7 +2,7 @@
 
 Playwright workspace for sourcing jobs from Wobo, Handshake, and Jack & Jill into the Notion Application Tracker.
 
-**Skill:** attach or invoke [`.cursor/skills/job-aggregators/SKILL.md`](.cursor/skills/job-aggregators/SKILL.md) for the full runbook.
+**Skill:** attach or invoke [`.cursor/skills/aggregator-sourcer/SKILL.md`](.cursor/skills/aggregator-sourcer/SKILL.md) for the full runbook.
 
 ## Setup
 
@@ -23,20 +23,20 @@ npm run test:access
 
 ```bash
 npm run source:all
-npm run cleanup:data          # before logging — removes stale temp artifacts
+npm run cleanup:data          # before logging — wipe all temp data/ (keep sourced-jobs.md)
 npm run log:notion:deduped
 # then user-notion MCP add_database_entry per data/notion-payloads.json
-npm run cleanup:data          # after logging — keeps only sourced-jobs.md
+npm run cleanup:data          # after logging — wipe all temp data/ again
 ```
 
 Scratch output: `data/sourced-jobs.md` → dedup → Notion Application Tracker.
 
-Skill references: `.cursor/skills/job-aggregators/references/reference-index.md`
+Skill references: `.cursor/skills/aggregator-sourcer/references/reference-index.md`
 
 ## Layout
 
 ```
-.cursor/skills/job-aggregators/   # Skill runbook + references + run logs
+.cursor/skills/aggregator-sourcer/   # Skill runbook + references + run logs
 data/                             # Runtime scratch + Notion artifacts (gitignored)
 scripts/
   auth/                           # Headed login → .auth/*.json

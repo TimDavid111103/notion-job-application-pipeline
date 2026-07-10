@@ -343,7 +343,9 @@ export function printHandoffSummary(result: FillResultItem): void {
       console.log(`  - [${u.reason}] ${u.label}${hint}`);
     }
   }
-  console.log("Review the browser, complete remaining fields, and submit manually.\n");
+  console.log(
+    "Review the browser, complete remaining fields, and submit manually. Report outcome in chat (Applied / Skip / Mark Invalid).\n"
+  );
 }
 
 export function getFillLimit(): number {

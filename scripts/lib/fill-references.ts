@@ -1,7 +1,7 @@
 /**
  * Parse fill reference markdown files and resolve form field values.
  */
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import {
   ANSWERS_FILE,
   PERSONAL_INFORMATION_FILE,
@@ -228,6 +228,11 @@ export function loadFillReferences(): FillReferences {
     answers = parseAnswers(readFileSync(ANSWERS_FILE, "utf8"));
   } catch {
     /* optional */
+  }
+  if (!existsSync(RESUME_FILE)) {
+    throw new Error(
+      `Missing resume at ${RESUME_FILE}. Copy your PDF there as resume.pdf before filling.`
+    );
   }
   return { personal, projects, answers, resumePath: RESUME_FILE };
 }

@@ -16,10 +16,10 @@ data/notion-fill-queue.json
 data/fill-session.json
 data/url-health-results.json
 data/fill-results.json
-.cursor/skills/job-aggregators/logs/*.md
-.cursor/skills/job-description-scraper/logs/*.md
-.cursor/skills/job-application-fill/logs/*.md
-.cursor/skills/job-application-fill/references/personal-information.md
-.cursor/skills/job-application-fill/references/projects.md
-.cursor/skills/job-application-fill/references/answers.md
-.cursor/skills/job-application-fill/references/documents/
+.cursor/skills/aggregator-sourcer/logs/*.md
+.cursor/skills/description-scraper/logs/*.md
+.cursor/skills/application-filler/logs/*.md
+.cursor/skills/application-filler/references/personal-information.md
+.cursor/skills/application-filler/references/projects.md
+.cursor/skills/application-filler/references/answers.md
+.cursor/skills/application-filler/references/documents/
