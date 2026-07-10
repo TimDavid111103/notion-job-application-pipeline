@@ -1,0 +1,39 @@
+---
+description: Hybrid scripts layout — source/scrape/fill/shared entrypoints and lib subfolders
+globs: scripts/**/*,package.json
+alwaysApply: false
+---
+
+# Scripts layout
+
+## Entrypoints
+
+| Lane | Directory | Role |
+|------|-----------|------|
+| Auth | `scripts/auth/` | Headed login → `.auth/*.json` |
+| Source | `scripts/source/` | Aggregator runners + Notion payload prep |
+| Scrape | `scripts/scrape/` | Description scrape CLIs |
+| Fill | `scripts/fill/` | URL health + application fill |
+| Shared | `scripts/shared/` | `cleanup-data`, unified `run-log-basename` |
+| Tests | `scripts/test/source/` | Session preflight (`test:access`) only |
+
+## Libraries (`scripts/lib/`)
+
+| Path | Role |
+|------|------|
+| `browser/` | Playwright launch + env bootstrap |
+| `job/` | SourcedJob, scratch, screening, limits |
+| `notion/` | Tracker constants, parsers, payloads |
+| `artifacts/` | Scrape/fill JSON envelopes |
+| `aggregators/` | Wobo, Handshake, Jack |
+| `scrape/` | Extraction, Workday, language, markdown |
+| `fill/` | Fill references + ATS heuristics |
+| `cli-json.ts` | Shared stdin/file JSON helpers |
+| `paths.ts`, `cleanup.ts`, `run-log.ts`, `url-health.ts` | Cross-lane utilities |
+
+## When adding a script
+
+1. Place the entrypoint under the matching lane folder
+2. Put shared logic under the matching `scripts/lib/` subfolder
+3. Register an npm script in `package.json`
+4. Update the relevant skill’s `protocol/repository-scripts-map.md`

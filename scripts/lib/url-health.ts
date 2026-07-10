@@ -2,8 +2,8 @@
  * Shared URL health classification for scraper and fill skills.
  */
 import type { Page, Response } from "playwright";
-import { cleanJobUrl } from "./job.js";
-import type { BrokenReason } from "./scrape-artifacts.js";
+import { cleanJobUrl } from "./job/index.js";
+import type { BrokenReason } from "./artifacts/scrape-artifacts.js";
 
 export type { BrokenReason };
 

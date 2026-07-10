@@ -7,11 +7,11 @@ disable-model-invocation: true
 # Application Filler
 
 Orchestration runbook — follow steps 0–12 in order. Full reference catalog:
-[references/reference-index.md](references/reference-index.md)
+[indexes/reference-index.md](indexes/reference-index.md)
 
 Playwright npm scripts at repo root (not browser MCP tabs). **Headed by default** for this skill.
 
-**Agent runtime (read first):** [references/agent-runtime.md](references/agent-runtime.md) —
+**Agent runtime (read first):** [protocol/agent-runtime.md](protocol/agent-runtime.md) —
 sandbox kills Chrome; use `required_permissions: ["all"]` for browser steps; URL health is HTTP by default.
 
 ## Phase checklist
@@ -35,9 +35,9 @@ sandbox kills Chrome; use `required_permissions: ["all"]` for browser steps; URL
 ## 0. Schema preflight
 
 Confirm Application Tracker properties via MCP `get_database` (especially **Status**, **Job Match**).
-Codified constants live in `scripts/lib/notion.ts`.
+Codified constants live in `scripts/lib/notion/`.
 
-→ [notion-tracker-schema.md](references/notion-tracker-schema.md)
+→ [notion/tracker-schema.md](notion/tracker-schema.md)
 
 ---
 
@@ -49,7 +49,7 @@ Run **outside the Cursor sandbox** (needs Chromium download + real browser cache
 bash .cursor/skills/application-filler/scripts/setup.sh
 ```
 
-→ [agent-runtime.md](references/agent-runtime.md)
+→ [protocol/agent-runtime.md](protocol/agent-runtime.md)
 
 ---
 
@@ -57,12 +57,12 @@ bash .cursor/skills/application-filler/scripts/setup.sh
 
 Confirm these files exist and are populated. **Do not search the filesystem** for the resume — if missing, stop and ask the user to copy it.
 
-- `references/personal-information.md` — standard form fields
-- `references/projects.md` — project write-ups
-- `references/answers.md` — screening Q&A exemplars
-- `references/documents/resume.pdf` — resume for file uploads (required)
+- `.cursor/skills/application-filler/assets/personal-information.md` — standard form fields
+- `.cursor/skills/application-filler/assets/projects.md` — project write-ups
+- `.cursor/skills/application-filler/assets/answers.md` — screening Q&A exemplars
+- `.cursor/skills/application-filler/assets/documents/resume.pdf` — resume for file uploads (required)
 
-→ [fill-references.md](references/fill-references.md)
+→ [fill-references.md](domain/fill-references.md)
 
 ---
 
@@ -72,20 +72,21 @@ Confirm these files exist and are populated. **Do not search the filesystem** fo
 npm run cleanup:data
 ```
 
-→ [fill-data-formats.md](references/fill-data-formats.md)
+→ [contracts/data-formats.md](contracts/data-formats.md)
+→ [docs/shared/data-cleanup.md](../../../docs/shared/data-cleanup.md)
 
 ---
 
 ## 4. Query eligible rows
 
 Query rows where **Job Match** is set and **Status** is not `Invalid`, `Rejected`, or `Applied`.
-Save MCP `results` to `data/jobs-ready-to-apply.json`:
+Save MCP `results` to `data/fill/jobs-ready-to-apply.json`:
 
 ```bash
 npm run write:jobs-ready-to-apply -- /path/to/mcp-query.json
 ```
 
-→ [notion-mcp-workflows.md](references/notion-mcp-workflows.md)
+→ [notion/mcp-workflows.md](notion/mcp-workflows.md)
 
 ---
 
@@ -98,7 +99,7 @@ description (`!isEmptyPageMarkdown`) and Job URL is non-empty.
 npm run write:fill-queue -- /path/to/queue-items.json
 ```
 
-→ [fill-data-formats.md](references/fill-data-formats.md)
+→ [contracts/data-formats.md](contracts/data-formats.md)
 
 ---
 
@@ -106,9 +107,9 @@ npm run write:fill-queue -- /path/to/queue-items.json
 
 **Use AskQuestion** before filling. See decision tree:
 
-→ [human-in-the-loop.md](references/human-in-the-loop.md)
+→ [human-in-the-loop.md](domain/human-in-the-loop.md)
 
-Write selection to `data/fill-session.json` (page IDs + filter choices).
+Write selection to `data/fill/fill-session.json` (page IDs + filter choices).
 
 ---
 
@@ -126,22 +127,22 @@ Use Playwright only when needed (e.g. Handshake), **outside sandbox**:
 URL_HEALTH_MODE=browser npm run check:url-health
 ```
 
-→ [url-health-policy.md](references/url-health-policy.md)
+→ [url-health-policy.md](../../../docs/shared/url-health-policy.md)
 
 ---
 
 ## 8. Delete dead URLs via MCP
 
-For each `status: "broken"` + `deletable: true` in `data/url-health-results.json`,
+For each `status: "broken"` + `deletable: true` in `data/fill/url-health-results.json`,
 call MCP `delete_database_entry`.
 
-→ [notion-mcp-workflows.md](references/notion-mcp-workflows.md)
+→ [notion/mcp-workflows.md](notion/mcp-workflows.md)
 
 ---
 
 ## 9. Fill applications (headed)
 
-Opens a visible browser, pre-fills fields, leaves the tab open. **Handoff is in chat** — use AskQuestion for Applied / Skip / Mark Invalid. Do **not** use Playwright inspector (`AUTO_PAUSE` is off by default).
+Opens a visible browser, pre-fills fields, leaves the tab open. **Handoff is in chat** — use AskQuestion (multiple choice): Applied / Invalid / Feedback. Do **not** use Playwright inspector (`AUTO_PAUSE` is off by default).
 
 **Must run outside the Cursor sandbox** (`required_permissions: ["all"]`).
 
@@ -150,9 +151,9 @@ HEADED=1 npm run fill:application
 ```
 
 Before each job: MCP `update_database_entry` → Status `In Progress`.
-After user confirms in chat: Status `Applied`.
+After **Applied** in chat: Status `Applied`, then next job.
 
-→ [ats-form-filling.md](references/ats-form-filling.md)
+→ [ats-form-filling.md](domain/ats-form-filling.md) · [human-in-the-loop.md](domain/human-in-the-loop.md)
 
 ---
 
@@ -161,10 +162,11 @@ After user confirms in chat: Status `Applied`.
 | Event | Status |
 |-------|--------|
 | Job opened for filling | `In Progress` |
-| User confirms submission | `Applied` |
-| User skips / invalid posting | `Invalid` (optional) |
+| User chooses Applied | `Applied` → next job |
+| User chooses Invalid | `Invalid` → next job |
+| User chooses Feedback | stay on job; update skill from feedback; re-ask |
 
-→ [notion-mcp-workflows.md](references/notion-mcp-workflows.md)
+→ [notion/mcp-workflows.md](notion/mcp-workflows.md)
 
 ---
 
@@ -174,6 +176,8 @@ After user confirms in chat: Status `Applied`.
 npm run cleanup:data
 ```
 
+→ [docs/shared/data-cleanup.md](../../../docs/shared/data-cleanup.md)
+
 ---
 
 ## 12. Report + run log
@@ -182,4 +186,4 @@ npm run cleanup:data
 npm run run-log:basename:fill
 ```
 
-→ [run-log-template.md](references/run-log-template.md)
+→ [contracts/run-log-template.md](contracts/run-log-template.md)

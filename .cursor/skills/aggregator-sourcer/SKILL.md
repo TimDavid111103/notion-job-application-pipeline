@@ -7,22 +7,25 @@ disable-model-invocation: true
 # Aggregator Sourcer
 
 Orchestration runbook — follow steps 0–11 in order. Full reference catalog:
-[references/reference-index.md](references/reference-index.md)
+[indexes/reference-index.md](indexes/reference-index.md)
 
 Playwright npm scripts at repo root (not browser MCP tabs). Headless by default; re-auth only
 when step 0 fails.
+
+**Agent runtime (read first):** [protocol/agent-runtime.md](protocol/agent-runtime.md) — browser commands, including headless sourcing, require `required_permissions: ["all"]`.
 
 ## Hard rule — `data/` temp cleanup
 
 **Run `npm run cleanup:data` at step 5 and again at step 9. Do not skip either pass.**
 
-- Deletes **everything** under `data/` except `sourced-jobs.md` and `.gitkeep`.
+- Deletes temporary lane artifacts while preserving `data/sourced-jobs.md` and `data/.gitkeep`.
 - That includes snapshot/payload JSON, `mcp-*` files and folders, queues, scratch pads, and
   any other leftover files or directories.
 - After each pass, `data/` must contain only `sourced-jobs.md` and `.gitkeep`.
 - If cleanup prints removals, confirm those paths are gone before continuing.
 
-→ [scratch-data-formats.md](references/scratch-data-formats.md) — runtime artifacts
+→ [contracts/data-formats.md](contracts/data-formats.md) — runtime artifacts
+→ [docs/shared/data-cleanup.md](../../../docs/shared/data-cleanup.md)
 
 ## Phase checklist
 
@@ -51,7 +54,7 @@ then re-run.
 npm run test:access
 ```
 
-→ [auth-and-selectors.md](references/auth-and-selectors.md)
+→ [auth-and-selectors.md](domain/auth-and-selectors.md)
 
 ---
 
@@ -70,7 +73,7 @@ bash .cursor/skills/aggregator-sourcer/scripts/setup.sh
 `source:all` calls `ensureScratchFile()` before aggregators run — no separate command.
 Prepares the rolling scratch window used for in-run dedup.
 
-→ [scratch-data-formats.md](references/scratch-data-formats.md)
+→ [contracts/data-formats.md](contracts/data-formats.md)
 
 ---
 
@@ -82,17 +85,17 @@ Capture new postings from Wobo, Handshake, and Jack & Jill into the scratch file
 npm run source:all
 ```
 
-→ [aggregator-sourcing-spec.md](references/aggregator-sourcing-spec.md)
+→ [aggregator-sourcing-spec.md](domain/aggregator-sourcing-spec.md)
 
 ### 3b. Jack clean-out
 
 After sourcing, empty Jack inbox and Saved kanban so nothing carries over.
 
 ```bash
-npx tsx scripts/sources/jack-empty.ts
+npm run source:jack-empty
 ```
 
-→ [jack-kanban-cleanup.md](references/jack-kanban-cleanup.md)
+→ [jack-kanban-cleanup.md](domain/jack-kanban-cleanup.md)
 
 ---
 
@@ -101,7 +104,7 @@ npx tsx scripts/sources/jack-empty.ts
 Confirm captured rows match the data contract. Report **total rows**, **unique jobs**
 (distinct `jobKey` — can be fewer than rows), and **new this run** (today's date).
 
-→ [scratch-data-formats.md](references/scratch-data-formats.md)
+→ [contracts/data-formats.md](contracts/data-formats.md)
 
 ---
 
@@ -114,9 +117,10 @@ prior runs and any leftover dumps so logging starts with a clean `data/` directo
 npm run cleanup:data
 ```
 
-**Done when:** `data/` contains only `sourced-jobs.md` and `.gitkeep`. Nothing else.
+**Done when:** `data/` contains only `sourced-jobs.md` and `.gitkeep`.
 
-→ [scratch-data-formats.md](references/scratch-data-formats.md) — runtime artifacts
+→ [contracts/data-formats.md](contracts/data-formats.md) — runtime artifacts
+→ [docs/shared/data-cleanup.md](../../../docs/shared/data-cleanup.md)
 
 ---
 
@@ -124,20 +128,20 @@ npm run cleanup:data
 
 Query the full Notion Application Tracker via MCP and save the response for dedup.
 
-→ [notion-tracker-logging.md](references/notion-tracker-logging.md) — query workflow
+→ [notion/mcp-workflows.md](notion/mcp-workflows.md) — query workflow
 
 ---
 
 ## 7. Prepare Notion payloads
 
-Dedupe **today's** scratch rows against the snapshot; write MCP-ready rows to `data/notion-payloads.json`.
+Dedupe **today's** scratch rows against the snapshot; write MCP-ready rows to `data/source/notion-payloads.json`.
 Older scratch rows are for sourcing dedup only.
 
 ```bash
 npm run log:notion:deduped
 ```
 
-→ [notion-tracker-logging.md](references/notion-tracker-logging.md) — payload file
+→ [notion/mcp-workflows.md](notion/mcp-workflows.md) — payload file
 
 ---
 
@@ -145,7 +149,7 @@ npm run log:notion:deduped
 
 Insert prepared payloads into the tracker via `user-notion` MCP.
 
-→ [notion-tracker-logging.md](references/notion-tracker-logging.md) — insert workflow
+→ [notion/mcp-workflows.md](notion/mcp-workflows.md) — insert workflow
 
 ---
 
@@ -159,10 +163,11 @@ permanent scratch remains.
 npm run cleanup:data
 ```
 
-**Done when:** `data/` contains only `sourced-jobs.md` and `.gitkeep`. Nothing else.
+**Done when:** `data/` contains only `sourced-jobs.md` and `.gitkeep`.
 If anything else remains, run cleanup again or delete it manually before reporting.
 
-→ [scratch-data-formats.md](references/scratch-data-formats.md) — runtime artifacts
+→ [contracts/data-formats.md](contracts/data-formats.md) — runtime artifacts
+→ [docs/shared/data-cleanup.md](../../../docs/shared/data-cleanup.md)
 
 ---
 
@@ -181,4 +186,4 @@ Write a run summary — required even for partial or failed runs.
 npm run run-log:basename
 ```
 
-→ [run-log-template.md](references/run-log-template.md)
+→ [contracts/run-log-template.md](contracts/run-log-template.md)

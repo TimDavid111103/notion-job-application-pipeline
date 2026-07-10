@@ -7,9 +7,11 @@ disable-model-invocation: true
 # Description Scraper
 
 Orchestration runbook — follow steps 0–10 in order. Full reference catalog:
-[references/reference-index.md](references/reference-index.md)
+[indexes/reference-index.md](indexes/reference-index.md)
 
 Playwright npm scripts at repo root (not browser MCP tabs). Headless by default.
+
+**Agent runtime (read first):** [protocol/agent-runtime.md](protocol/agent-runtime.md) — headless scraping still requires `required_permissions: ["all"]`.
 
 ## Phase checklist
 
@@ -30,9 +32,9 @@ Playwright npm scripts at repo root (not browser MCP tabs). Headless by default.
 ## 0. Schema preflight
 
 Confirm Application Tracker properties via MCP `get_database` (especially **Job Match**).
-Codified constants live in `scripts/lib/notion.ts`.
+Codified constants live in `scripts/lib/notion/`.
 
-→ [notion-tracker-schema.md](references/notion-tracker-schema.md)
+→ [notion/tracker-schema.md](notion/tracker-schema.md)
 
 ---
 
@@ -54,31 +56,32 @@ Clear stale temporary `data/` files from prior runs.
 npm run cleanup:data
 ```
 
-→ [scrape-data-formats.md](references/scrape-data-formats.md) — runtime artifacts
+→ [contracts/data-formats.md](contracts/data-formats.md) — runtime artifacts
+→ [docs/shared/data-cleanup.md](../../../docs/shared/data-cleanup.md)
 
 ---
 
 ## 3. Query unmatched rows
 
 Query Application Tracker entries where **Job Match** is empty. Save the MCP `results`
-array to `data/jobs-needing-descriptions.json`:
+array to `data/scrape/jobs-needing-descriptions.json`:
 
 ```bash
 npm run write:jobs-needing-descriptions -- /path/to/mcp-query.json
 # or pipe MCP JSON: … | npm run write:jobs-needing-descriptions
 ```
 
-→ [notion-mcp-workflows.md](references/notion-mcp-workflows.md) — query workflow
+→ [notion/mcp-workflows.md](notion/mcp-workflows.md) — query workflow
 
 ---
 
 ## 4. Build scrape queue
 
 For each row in the snapshot, call MCP `read_page` (`max_blocks: 5`). Include a row in
-`data/notion-scrape-queue.json` only when **both** are true:
+`data/scrape/notion-scrape-queue.json` only when **both** are true:
 
 1. Job Match is empty (already filtered in step 3).
-2. Page body is empty (`isEmptyPageMarkdown` in `scripts/lib/notion.ts`).
+2. Page body is empty (`isEmptyPageMarkdown` in `scripts/lib/notion/`).
 
 Write the queue envelope (requires step 3 snapshot on disk):
 
@@ -86,7 +89,7 @@ Write the queue envelope (requires step 3 snapshot on disk):
 npm run write:scrape-queue -- /path/to/queue-items.json
 ```
 
-→ [scrape-data-formats.md](references/scrape-data-formats.md) — queue file
+→ [contracts/data-formats.md](contracts/data-formats.md) — queue file
 
 ---
 
@@ -98,17 +101,17 @@ Visit each Job URL in the queue and extract posting text.
 npm run scrape:descriptions
 ```
 
-→ [job-url-extraction.md](references/job-url-extraction.md)
+→ [job-url-extraction.md](domain/job-url-extraction.md)
 
 ---
 
 ## 6. Verify results
 
 Report **queued**, **ok**, **broken**, and **deletable** counts from
-`data/scrape-results.json` → `summary`. Spot-check one `ok` row in `items` for sensible
+`data/scrape/scrape-results.json` → `summary`. Spot-check one `ok` row in `items` for sensible
 content length and markdown structure.
 
-→ [scrape-data-formats.md](references/scrape-data-formats.md) — results file
+→ [contracts/data-formats.md](contracts/data-formats.md) — results file
 
 ---
 
@@ -116,7 +119,7 @@ content length and markdown structure.
 
 For each `status: "ok"` row, call MCP `append_content` with the prepared markdown.
 
-→ [notion-mcp-workflows.md](references/notion-mcp-workflows.md) — append workflow
+→ [notion/mcp-workflows.md](notion/mcp-workflows.md) — append workflow
 
 ---
 
@@ -124,7 +127,7 @@ For each `status: "ok"` row, call MCP `append_content` with the prepared markdow
 
 For each `status: "broken"` row, call MCP `delete_database_entry`.
 
-→ [notion-mcp-workflows.md](references/notion-mcp-workflows.md) — delete workflow
+→ [notion/mcp-workflows.md](notion/mcp-workflows.md) — delete workflow
 
 ---
 
@@ -136,7 +139,8 @@ Remove snapshot, queue, and results files. Only permanent `data/` files remain.
 npm run cleanup:data
 ```
 
-→ [scrape-data-formats.md](references/scrape-data-formats.md) — runtime artifacts
+→ [contracts/data-formats.md](contracts/data-formats.md) — runtime artifacts
+→ [docs/shared/data-cleanup.md](../../../docs/shared/data-cleanup.md)
 
 ---
 
@@ -148,4 +152,4 @@ Summarize queue size, scrape outcomes, append/delete counts, and failures.
 npm run run-log:basename:scraper
 ```
 
-→ [run-log-template.md](references/run-log-template.md)
+→ [contracts/run-log-template.md](contracts/run-log-template.md)

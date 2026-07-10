@@ -1,0 +1,37 @@
+---
+description: Required identical folder layout for pipeline skills under .cursor/skills/
+globs: .cursor/skills/**/*
+alwaysApply: false
+---
+
+# Skill folder layout
+
+Every pipeline skill uses this layout — same folder names and roles:
+
+```
+.cursor/skills/<skill>/
+├── SKILL.md
+├── indexes/          # reference-index.md, topic-pointer-index.md
+├── protocol/         # pipeline-commands, repository-scripts-map, environment-variables, agent-runtime
+├── notion/           # tracker-schema.md, mcp-workflows.md
+├── contracts/        # data-formats.md, run-log-template.md
+├── domain/           # skill-unique knowledge only
+├── assets/           # application-filler only (PII + resume)
+├── logs/
+└── scripts/setup.sh
+```
+
+## SKILL.md skeleton
+
+1. YAML frontmatter: `name`, `description`, `disable-model-invocation: true`
+2. Title + orchestration runbook line + link to `indexes/reference-index.md`
+3. Phase checklist
+4. Numbered `## N.` sections with `→` links into classified folders or `docs/shared/`
+5. No links to other skills
+
+## Do not
+
+- Invent alternate top-level folders for the same concerns
+- Put shared policy inside a skill — use `docs/shared/`
+- Add `assets/` to skills other than application-filler
+- Cross-link another skill’s files

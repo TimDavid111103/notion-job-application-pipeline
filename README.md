@@ -1,8 +1,16 @@
 # Notion Job Application Pipeline
 
-Playwright workspace for sourcing jobs from Wobo, Handshake, and Jack & Jill into the Notion Application Tracker.
+Playwright workspace for sourcing, enriching, and filling jobs in the Notion Application Tracker.
 
-**Skill:** attach or invoke [`.cursor/skills/aggregator-sourcer/SKILL.md`](.cursor/skills/aggregator-sourcer/SKILL.md) for the full runbook.
+## Skills
+
+| Skill | Runbook |
+|-------|---------|
+| Aggregator sourcer | [`.cursor/skills/aggregator-sourcer/SKILL.md`](.cursor/skills/aggregator-sourcer/SKILL.md) |
+| Description scraper | [`.cursor/skills/description-scraper/SKILL.md`](.cursor/skills/description-scraper/SKILL.md) |
+| Application filler | [`.cursor/skills/application-filler/SKILL.md`](.cursor/skills/application-filler/SKILL.md) |
+
+Shared policy: [`docs/shared/`](docs/shared/).
 
 ## Setup
 
@@ -23,27 +31,28 @@ npm run test:access
 
 ```bash
 npm run source:all
-npm run cleanup:data          # before logging — wipe all temp data/ (keep sourced-jobs.md)
+npm run cleanup:data          # before logging — wipe temp data/ (keep sourced-jobs.md)
 npm run log:notion:deduped
-# then user-notion MCP add_database_entry per data/notion-payloads.json
-npm run cleanup:data          # after logging — wipe all temp data/ again
+# then user-notion MCP add_database_entry per data/source/notion-payloads.json
+npm run cleanup:data          # after logging
 ```
-
-Scratch output: `data/sourced-jobs.md` → dedup → Notion Application Tracker.
-
-Skill references: `.cursor/skills/aggregator-sourcer/references/reference-index.md`
 
 ## Layout
 
 ```
-.cursor/skills/aggregator-sourcer/   # Skill runbook + references + run logs
-data/                             # Runtime scratch + Notion artifacts (gitignored)
+.cursor/skills/<skill>/     # SKILL.md + indexes/protocol/notion/contracts/domain/(assets)/logs
+docs/shared/                # Cross-skill policy (URL health, Notion overview, cleanup)
+data/
+  sourced-jobs.md           # Permanent scratch
+  source/ scrape/ fill/     # Temporary lane artifacts (gitignored)
 scripts/
-  auth/                           # Headed login → .auth/*.json
-  sources/                        # Per-aggregator sourcing
-  pipeline/                       # Orchestration + Notion payload prep
-  test/                           # Access smoke test + dedup unit checks
-  lib/                            # Shared + per-aggregator logic
+  auth/                     # Headed login → .auth/*.json
+  source/                   # Aggregator runners + Notion payload prep
+  scrape/                   # Description scrape CLIs
+  fill/                     # URL health + application fill
+  shared/                   # cleanup-data, run-log-basename
+  test/source/              # Session preflight (test:access)
+  lib/                      # browser, job, notion, artifacts, aggregators, scrape, fill
   setup.sh
-.auth/                            # Saved sessions (gitignored)
+.auth/                      # Saved sessions (gitignored)
 ```

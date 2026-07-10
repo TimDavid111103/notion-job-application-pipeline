@@ -1,0 +1,28 @@
+---
+description: One canonical reference per topic; keep indexes updated on add/rename
+globs: .cursor/skills/**/*.md
+alwaysApply: false
+---
+
+# Skill reference ownership
+
+**Rule:** one source of truth per topic; link instead of duplicating.
+
+## Folder ownership
+
+| Folder | Owns |
+|--------|------|
+| `protocol/` | How to run (commands, env, scripts map, agent runtime) |
+| `notion/` | Skill-scoped eligibility + MCP steps |
+| `contracts/` | Data envelopes and run-log template |
+| `domain/` | Skill-unique heuristics and content |
+| `indexes/` | Catalog + topic → file map only |
+| `docs/shared/` | Cross-skill policy (repo, not under a skill) |
+
+## When adding or renaming a reference
+
+1. Put the file in the owning folder
+2. Update `indexes/reference-index.md`
+3. Update `indexes/topic-pointer-index.md`
+4. Point SKILL.md `→` links at the new path
+5. Do not leave a second copy of the same rules elsewhere

@@ -1,0 +1,24 @@
+---
+description: Lock the standardized skill structure when fixing or updating skills — edit content in place, do not reshape the pattern
+globs: .cursor/skills/**/*
+alwaysApply: false
+---
+
+# Skill structure lock
+
+After the directory-wide refactor, the three pipeline skills share one structure.
+When fixing bugs or updating behavior, **edit inside that pattern** — do not invent a new layout.
+
+## Do
+
+- Change required behavior in the existing step, checklist item, or owning reference file
+- Update links if a file is renamed within the standard folders
+- Keep the shared SKILL.md skeleton (frontmatter, checklist, numbered phases, `→` links)
+
+## Do not
+
+- Create parallel folder schemes (`references/`, `docs/` inside a skill, ad-hoc top-level dirs)
+- Reshuffle the shared runbook skeleton just to emphasize one fix
+- Split or merge classified folders (`protocol/`, `notion/`, `contracts/`, `domain/`, `indexes/`) without an explicit user request to change the standard
+
+If a structural change to the shared pattern is truly required, ask the user first.

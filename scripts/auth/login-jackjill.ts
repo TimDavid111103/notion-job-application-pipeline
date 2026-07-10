@@ -2,7 +2,7 @@
  * Headed one-time login for Jack & Jill — saves session to .auth/jackjill.json.
  * May require email verification code on first login.
  */
-import { launchBrowser, createContext, waitForManualLogin } from "../lib/browser.js";
+import { launchBrowser, createContext, waitForManualLogin } from "../lib/browser/index.js";
 
 const EMAIL = "tim.david1111@gmail.com";
 const JACK_INBOX = "https://app.jackandjill.ai/jack/dashboard/inbox";

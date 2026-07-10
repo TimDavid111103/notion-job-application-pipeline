@@ -1,0 +1,29 @@
+---
+description: How skills couple to repo scripts, docs/shared, and paths.ts — keep them in sync on renames
+globs: .cursor/skills/**/*,scripts/**/*,docs/shared/**/*,package.json
+alwaysApply: false
+---
+
+# Skill ↔ repo coupling
+
+Skills are orchestration runbooks. Shared behavior lives in the **repo**, not in other skills.
+
+## Sources of truth
+
+| Concern | Location |
+|---------|----------|
+| Shared policy (URL health, Notion IDs overview, cleanup) | `docs/shared/` |
+| Notion constants / parsers / payloads | `scripts/lib/notion/` |
+| Runtime paths | `scripts/lib/paths.ts` |
+| npm entrypoints | `package.json` → `scripts/{source,scrape,fill,shared,auth}/` |
+| Fill PII / resume | `.cursor/skills/application-filler/assets/` |
+
+## When renaming or moving
+
+1. Update `scripts/lib/paths.ts` and any writers that use those paths
+2. Update `package.json` script entries
+3. Update skill `protocol/repository-scripts-map.md` and `protocol/pipeline-commands.md`
+4. Update `docs/shared/` if the shared contract changed
+5. Update both skill indexes if a skill-local file moved
+
+Skills must not depend on another skill’s folder. Point at `scripts/auth/`, `.auth/`, or `docs/shared/` instead.
