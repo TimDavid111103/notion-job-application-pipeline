@@ -41,6 +41,8 @@ export function aggregatorForUrl(url: string): Aggregator | undefined {
 export interface LaunchOptions {
   headed?: boolean;
   aggregator?: Aggregator;
+  /** When true, Playwright will not auto-close Chrome on process signals (headed handoff). */
+  ignoreDefaultSignals?: boolean;
 }
 
 export async function ensureAuthDir(): Promise<void> {
@@ -80,9 +82,16 @@ export async function launchBrowser(options: LaunchOptions = {}): Promise<Browse
     );
   }
 
+  const signalOpts = options.ignoreDefaultSignals
+    ? { handleSIGINT: false, handleSIGTERM: false, handleSIGHUP: false }
+    : {};
+
   const attempts: Array<{ label: string; opts: Parameters<typeof chromium.launch>[0] }> = [
-    { label: "channel=chrome", opts: { channel: "chrome", headless: !headed, args } },
-    { label: "bundled chromium", opts: { headless: !headed, args } },
+    {
+      label: "channel=chrome",
+      opts: { channel: "chrome", headless: !headed, args, ...signalOpts },
+    },
+    { label: "bundled chromium", opts: { headless: !headed, args, ...signalOpts } },
   ];
 
   const errors: string[] = [];

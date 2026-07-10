@@ -11,11 +11,15 @@ Versioned JSON envelopes under `data/fill/`. Schema version: `1`. Builders: `scr
 | `.cursor/skills/application-filler/assets/personal-information.md` | Permanent (skill folder) |
 | `.cursor/skills/application-filler/assets/projects.md` | Permanent |
 | `.cursor/skills/application-filler/assets/answers.md` | Permanent |
+| `.cursor/skills/application-filler/assets/skills-profile.md` | Permanent |
+| `.cursor/skills/application-filler/assets/cover-letter.md` | Permanent |
 | `jobs-ready-to-apply.json` | Temporary — step 4 |
 | `notion-fill-queue.json` | Temporary — step 5 |
 | `fill-session.json` | Temporary — step 6 |
 | `url-health-results.json` | Temporary — step 7 |
+| `ai-answers.json` | Temporary — step 9 (AI-fill) |
 | `fill-results.json` | Temporary — step 9 |
+| `handoff-continue` | Temporary — step 9 handoff signal |
 
 Removed by `npm run cleanup:data`.
 
@@ -48,9 +52,27 @@ Removed by `npm run cleanup:data`.
       "jobUrl": "https://…",
       "jobMatch": "High",
       "dateAdded": "2026-07-08",
-      "status": "Not Started"
+      "status": "Not Started",
+      "jobDescription": "Optional — Notion page body markdown for AI-fill / cover letter"
     }
   ]
+}
+```
+
+## ai-answers.json
+
+Agent- or LLM-written open-ended answers for the current job (step 9):
+
+```json
+{
+  "page_id": "…",
+  "company": "Acme",
+  "role": "Software Engineer",
+  "answers": {
+    "Experience Summary": "…",
+    "Why Acme?": "…"
+  },
+  "cover_letter": "Optional full letter text overriding cover-letter.md generation"
 }
 ```
 

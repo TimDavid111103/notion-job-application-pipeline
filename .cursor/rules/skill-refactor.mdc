@@ -1,0 +1,36 @@
+---
+description: After any skill update, refactor toward principles — cut redundancy and fold new exceptions into broader rules instead of listing cases
+globs: .cursor/skills/**/*
+alwaysApply: false
+---
+
+# Skill refactor
+
+Whenever you change a Cursor skill under `.cursor/skills/`, do not stop at the local edit. Before finishing, run a short refactor pass on the **whole skill** (SKILL.md + linked references you touched or that absorb the change).
+
+## Mandatory questions
+
+Answer both before considering the update done:
+
+1. **Redundancy / overstress** — Is any information repeated, restated at different levels of detail, or emphasized more than once across SKILL.md and its references? Collapse or delete the weaker copy.
+2. **Exception → principle** — Did this change add a new exception, edge case, or one-off rule? Looking at the entire skill, how can that case be folded into a broader principle that covers multiple exceptions without naming each one?
+
+## Do
+
+- Prefer one durable principle over a growing list of special cases
+- Merge near-duplicate bullets, checklists, and “also remember” asides into a single owning statement
+- Put the principle in the right owning file; keep SKILL.md as orchestration, not a second copy of domain rules
+- If a new case does not fit an existing principle, rewrite the principle so it does — do not append another bullet
+
+## Do not
+
+- Add “except when…” / “also for…” / “in the case of…” without first trying to generalize
+- Leave the same rule stated in SKILL.md and again in a reference
+- Grow case catalogs when a constraint, default, or decision rule would cover them
+- Treat the local fix as complete if the skill is now longer only because of enumerated exceptions
+
+## Done when
+
+- Both mandatory questions have been answered (briefly, in your own reasoning)
+- The skill is no longer than needed for the same behavior
+- New behavior is expressed as a principle where possible, not as another listed exception

@@ -13,6 +13,8 @@ Copy to `.cursor/skills/application-filler/assets/personal-information.md` and f
 | City | |
 | State / Region | |
 | Country | |
+| Full name | |
+| Mailing address | |
 | LinkedIn | |
 | GitHub | |
 
@@ -44,8 +46,14 @@ Copy to `.cursor/skills/application-filler/assets/personal-information.md` and f
 | Notice period | |
 | Willing to relocate | Yes / No |
 | Remote / Hybrid / Onsite preference | |
+| Salary range min | |
+| Salary range max | |
 | Salary expectation | |
+| Salary default | |
+| Salary currency | USD ($) |
 | Currently employed | Yes / No |
+
+Salary policy: midpoint of range when a range applies; otherwise Salary default.
 
 ## Education
 | Field | Value |
@@ -54,5 +62,7 @@ Copy to `.cursor/skills/application-filler/assets/personal-information.md` and f
 | Degree | |
 | Majors | |
 | Minor | |
+| School start date | |
+| School end date | |
 | Graduation date | |
 | GPA | |

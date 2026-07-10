@@ -12,7 +12,9 @@ Quick lookup — each topic has one canonical document.
 | MCP workflows | [notion/mcp-workflows.md](../notion/mcp-workflows.md) |
 | Data formats | [contracts/data-formats.md](../contracts/data-formats.md) |
 | Run logs | [contracts/run-log-template.md](../contracts/run-log-template.md) |
-| Fill references | [domain/fill-references.md](../domain/fill-references.md) |
+| Fill references (auto-fill vs AI-fill) | [domain/fill-references.md](../domain/fill-references.md) |
+| Cover letter | [assets/cover-letter.md](../assets/cover-letter.md) |
+| Skills / tech profile | [assets/skills-profile.md](../assets/skills-profile.md) |
 | ATS filling | [domain/ats-form-filling.md](../domain/ats-form-filling.md) |
 | Human handoff | [domain/human-in-the-loop.md](../domain/human-in-the-loop.md) |
 | URL health | [docs/shared/url-health-policy.md](../../../../docs/shared/url-health-policy.md) |

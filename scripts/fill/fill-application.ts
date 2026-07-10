@@ -1,7 +1,8 @@
 /**
  * Headed application fill loop — reads fill-session.json + notion-fill-queue.json.
  */
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, writeFile, unlink, access } from "node:fs/promises";
+import { constants as fsConstants } from "node:fs";
 import {
   aggregatorForUrl,
   closeBrowser,
@@ -9,7 +10,7 @@ import {
   launchBrowser,
   type Aggregator,
 } from "../lib/browser/index.js";
-import type { Page } from "playwright";
+import type { Browser, Page } from "playwright";
 import {
   fillApplicationForm,
   getFillLimit,
@@ -20,6 +21,7 @@ import {
   FILL_QUEUE_FILE,
   FILL_RESULTS_FILE,
   FILL_SESSION_FILE,
+  HANDOFF_CONTINUE_FILE,
   ensureParentDir,
 } from "../lib/paths.js";
 import {
@@ -42,6 +44,77 @@ function shouldKeepBrowserOpen(): boolean {
   return process.env.HEADED === "1";
 }
 
+async function clearHandoffContinue(): Promise<void> {
+  try {
+    await unlink(HANDOFF_CONTINUE_FILE);
+  } catch {
+    /* missing is fine */
+  }
+}
+
+/**
+ * KEEP_BROWSER_OPEN only works while this Node process stays alive.
+ * Wait until the user closes Chrome, presses Enter, or the agent writes handoff-continue.
+ */
+async function waitForHandoffKeepAlive(browser: Browser): Promise<void> {
+  await clearHandoffContinue();
+  console.log(
+    [
+      "Handoff wait — browser stays open until one of:",
+      "  1) close the browser window",
+      "  2) press Enter in this terminal",
+      `  3) agent writes ${HANDOFF_CONTINUE_FILE}`,
+    ].join("\n")
+  );
+
+  const disconnected = new Promise<void>((resolve) => {
+    if (!browser.isConnected()) {
+      resolve();
+      return;
+    }
+    browser.once("disconnected", () => resolve());
+  });
+
+  const enterPressed = new Promise<void>((resolve) => {
+    if (!process.stdin.isTTY) return;
+    process.stdin.resume();
+    process.stdin.setEncoding("utf8");
+    const onData = (): void => {
+      process.stdin.off("data", onData);
+      resolve();
+    };
+    process.stdin.on("data", onData);
+  });
+
+  const continueFile = new Promise<void>((resolve) => {
+    const poll = async (): Promise<void> => {
+      for (;;) {
+        try {
+          await access(HANDOFF_CONTINUE_FILE, fsConstants.F_OK);
+          resolve();
+          return;
+        } catch {
+          await new Promise((r) => setTimeout(r, 500));
+        }
+      }
+    };
+    void poll();
+  });
+
+  await Promise.race([disconnected, enterPressed, continueFile]);
+  await clearHandoffContinue();
+  console.log("Handoff wait ended.");
+}
+
+async function writeResults(results: FillResultItem[]): Promise<void> {
+  const file = buildFillResultsFile(results);
+  await ensureParentDir(FILL_RESULTS_FILE);
+  await writeFile(FILL_RESULTS_FILE, serializeFillArtifact(file), "utf8");
+  console.log(
+    `Filled ${file.summary.processed} job(s): ${file.summary.filled} filled, ${file.summary.partial} partial → ${FILL_RESULTS_FILE}`
+  );
+}
+
 async function main(): Promise<void> {
   const sessionRaw = JSON.parse(await readFile(FILL_SESSION_FILE, "utf8")) as unknown;
   const session = parseFillSessionFile(sessionRaw);
@@ -53,18 +126,17 @@ async function main(): Promise<void> {
   const toProcess = selected.slice(0, Number.isFinite(limit) ? limit : selected.length);
 
   if (toProcess.length === 0) {
-    await ensureParentDir(FILL_RESULTS_FILE);
-    await writeFile(
-      FILL_RESULTS_FILE,
-      serializeFillArtifact(buildFillResultsFile([])),
-      "utf8"
-    );
+    await writeResults([]);
     console.log("No jobs in fill session — wrote empty fill-results.json.");
     return;
   }
 
+  const keepOpen = shouldKeepBrowserOpen();
   const refs = loadFillReferences();
-  const browser = await launchBrowser({ headed: true });
+  const browser = await launchBrowser({
+    headed: true,
+    ignoreDefaultSignals: keepOpen,
+  });
   const results: FillResultItem[] = [];
   const pageCache = new Map<Aggregator | "public", Page>();
 
@@ -87,6 +159,9 @@ async function main(): Promise<void> {
       results.push(result);
       printHandoffSummary(result);
 
+      // Persist after each job so the agent can read results while the browser stays open.
+      await writeResults(results);
+
       if (shouldAutoPause()) {
         console.log(
           "AUTO_PAUSE=1 — Playwright inspector open. Press Resume to continue to the next job."
@@ -97,21 +172,23 @@ async function main(): Promise<void> {
           "Pre-fill complete. Finish remaining fields in the browser; agent will AskQuestion: Applied / Invalid / Feedback."
         );
       }
+
+      if (keepOpen) {
+        await waitForHandoffKeepAlive(browser);
+        if (!browser.isConnected()) {
+          console.log("Browser closed during handoff — ending fill loop.");
+          break;
+        }
+      }
     }
   } finally {
-    if (shouldKeepBrowserOpen()) {
-      console.log("Browser left open — close the window when you are done.");
-    } else {
+    if (keepOpen && browser.isConnected()) {
+      // Still connected after final handoff wait — leave Chrome up; do not close.
+      console.log("Browser left open — close the window when you are fully done.");
+    } else if (browser.isConnected()) {
       await closeBrowser(browser);
     }
   }
-
-  const file = buildFillResultsFile(results);
-  await ensureParentDir(FILL_RESULTS_FILE);
-  await writeFile(FILL_RESULTS_FILE, serializeFillArtifact(file), "utf8");
-  console.log(
-    `Filled ${file.summary.processed} job(s): ${file.summary.filled} filled, ${file.summary.partial} partial → ${FILL_RESULTS_FILE}`
-  );
 }
 
 main().catch((err) => {

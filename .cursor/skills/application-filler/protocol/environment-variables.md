@@ -10,7 +10,9 @@
 | `URL_HEALTH_DELAY_MS` | 1000 | Delay between health check URLs |
 | `AUTO_SUBMIT` | off | Never auto-submit in v1 |
 | `AUTO_PAUSE` | off | Opt-in `page.pause()` (Playwright inspector overlay) |
-| `KEEP_BROWSER_OPEN` | on when `HEADED=1` | Leave browser open after pre-fill instead of closing |
+| `KEEP_BROWSER_OPEN` | on when `HEADED=1` | Keep the fill **process** alive after pre-fill (browser dies if Node exits). Unblock via Enter, closing Chrome, or `data/fill/handoff-continue` |
+| `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` | unset | Optional live AI-fill for open-ended fields when `data/fill/ai-answers.json` is missing |
+| `ANTHROPIC_MODEL` / `OPENAI_MODEL` | sonnet / gpt-4o-mini | Model override for live AI-fill |
 | `SCRAPE_TIMEOUT_MS` | — | Fallback for URL_HEALTH_TIMEOUT_MS |
 | `PLAYWRIGHT_BROWSERS_PATH` | auto | Set by `playwright-env.ts` to `~/Library/Caches/ms-playwright` |
 | `PLAYWRIGHT_HOST_PLATFORM_OVERRIDE` | auto on arm64 | Forces `mac*-arm64` when sandbox empties `os.cpus()` |

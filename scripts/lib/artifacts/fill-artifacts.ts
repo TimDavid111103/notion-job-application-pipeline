@@ -23,6 +23,8 @@ export interface FillQueueItem {
   jobMatch: string;
   dateAdded: string;
   status: string;
+  /** Optional Notion job-description markdown for AI-fill / cover letter. */
+  jobDescription?: string;
 }
 
 export interface FillQueueFile {
@@ -251,6 +253,7 @@ function parseFillQueueItem(value: unknown, file: string, index: number): FillQu
     jobMatch: typeof value.jobMatch === "string" ? value.jobMatch : "",
     dateAdded: typeof value.dateAdded === "string" ? value.dateAdded : "",
     status: typeof value.status === "string" ? value.status : "",
+    jobDescription: typeof value.jobDescription === "string" ? value.jobDescription : undefined,
   };
 }
 

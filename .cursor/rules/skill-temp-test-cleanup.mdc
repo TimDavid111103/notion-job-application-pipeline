@@ -1,0 +1,31 @@
+---
+description: Temporary test files during skill updates/fixes must be deleted after verification — never leave them in the tree
+globs: .cursor/skills/**/*,scripts/**/*
+alwaysApply: false
+---
+
+# Temporary tests for skill work — create, verify, delete
+
+When updating or fixing a skill, you may create short-lived test scripts, fixtures, or scratch files to verify the change. Those files are **not** part of the skill or repo layout.
+
+## Do
+
+- Create throwaway tests only as needed to confirm a skill fix or update
+- Keep them obviously temporary (e.g. `tmp-`, `scratch-`, or a one-off under `/tmp` / a disposable path)
+- Run the verification, then **delete every file you created for that test** before ending the task
+- Confirm with `git status` that no test-only paths remain untracked or modified for keep
+
+## Do not
+
+- Commit temporary test scripts, fixtures, or sample outputs
+- Add permanent `test/`, `__tests__/`, `*.test.ts`, or “debug” scripts into skill folders or `scripts/` as a side effect of a fix
+- Leave scratch files woven into `.cursor/skills/`, `scripts/`, or docs after the change is verified
+- Document throwaway paths in skill indexes, protocol maps, or `package.json` unless the user explicitly asked for a lasting test harness
+
+## Done checklist
+
+Before finishing a skill update/fix:
+
+1. Delete all temporary test scripts and files created for this work
+2. Do not stage or commit them
+3. Leave the tree matching the intentional skill/repo structure only

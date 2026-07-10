@@ -28,6 +28,8 @@ export const FILL_QUEUE_FILE = path.join(DATA_DIR, "fill", "notion-fill-queue.js
 export const FILL_SESSION_FILE = path.join(DATA_DIR, "fill", "fill-session.json");
 export const URL_HEALTH_RESULTS_FILE = path.join(DATA_DIR, "fill", "url-health-results.json");
 export const FILL_RESULTS_FILE = path.join(DATA_DIR, "fill", "fill-results.json");
+/** Written by the agent after AskQuestion to unblock a headed handoff wait. */
+export const HANDOFF_CONTINUE_FILE = path.join(DATA_DIR, "fill", "handoff-continue");
 
 /** Skill run logs — `*.md` gitignored; newest-first when sorted by name. */
 export const RUN_LOGS_DIR = path.join(REPO_ROOT, ".cursor/skills/aggregator-sourcer/logs");
@@ -46,7 +48,21 @@ export const FILL_ASSETS_DIR = path.join(FILL_SKILL_DIR, "assets");
 export const PERSONAL_INFORMATION_FILE = path.join(FILL_ASSETS_DIR, "personal-information.md");
 export const PROJECTS_FILE = path.join(FILL_ASSETS_DIR, "projects.md");
 export const ANSWERS_FILE = path.join(FILL_ASSETS_DIR, "answers.md");
+export const SKILLS_PROFILE_FILE = path.join(FILL_ASSETS_DIR, "skills-profile.md");
+export const COVER_LETTER_MD_FILE = path.join(FILL_ASSETS_DIR, "cover-letter.md");
 export const RESUME_FILE = path.join(FILL_ASSETS_DIR, "documents", "resume.pdf");
+export const COVER_LETTER_TEMPLATE_FILE = path.join(
+  FILL_ASSETS_DIR,
+  "documents",
+  "cover-letter-template.pdf"
+);
+export const COVER_LETTER_GENERATED_FILE = path.join(
+  FILL_ASSETS_DIR,
+  "documents",
+  "cover-letter.pdf"
+);
+/** Agent- or LLM-generated answers for AI-fill fields, keyed by normalized label. */
+export const AI_ANSWERS_FILE = path.join(DATA_DIR, "fill", "ai-answers.json");
 
 /** @deprecated Use FILL_ASSETS_DIR */
 export const FILL_REFERENCES_DIR = FILL_ASSETS_DIR;

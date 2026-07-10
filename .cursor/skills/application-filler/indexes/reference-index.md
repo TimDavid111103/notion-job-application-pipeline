@@ -31,7 +31,7 @@
 | `notion/` | Tracker schema and MCP workflows |
 | `contracts/` | Fill data formats and run-log template |
 | `domain/` | ATS filling, human handoff, reference lookup |
-| `assets/` | Personal information, projects, answers, and `documents/resume.pdf` |
+| `assets/` | Personal information, projects, answers, skills profile, resume, cover letter |
 | `logs/` | Per-run logs |
 | `scripts/` | First-run setup wrapper |
 
@@ -42,5 +42,8 @@
 | [personal-information.md](../assets/personal-information.md) | Live standard form values |
 | [personal-information.template.md](../assets/personal-information.template.md) | Versioned schema template |
 | [projects.md](../assets/projects.md) | Project write-ups |
-| [answers.md](../assets/answers.md) | Screening-answer exemplars |
+| [answers.md](../assets/answers.md) | Screening-answer exemplars (AI-fill seed) |
+| [cover-letter.md](../assets/cover-letter.md) | Cover letter text template |
+| [skills-profile.md](../assets/skills-profile.md) | Experience defaults + tech/skills for selects |
 | [documents/resume.pdf](../assets/documents/resume.pdf) | Required resume upload |
+| [documents/cover-letter-template.pdf](../assets/documents/cover-letter-template.pdf) | Cover letter PDF twin |

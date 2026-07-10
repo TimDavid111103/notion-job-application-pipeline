@@ -23,7 +23,8 @@ Commands: [pipeline-commands.md](pipeline-commands.md).
 | Path | Role |
 |---|---|
 | `artifacts/fill-artifacts.ts` | Fill JSON envelope builders and parsers |
-| `fill/fill-references.ts` | Markdown asset parsing and lookup |
+| `fill/fill-references.ts` | Markdown asset parsing and auto-fill lookup |
+| `fill/ai-fill.ts` | Open-ended AI-fill (`ai-answers.json` / LLM) |
 | `fill/application-fill.ts` | Headed Playwright form fill |
 | `browser/` | Playwright launch, context, and environment bootstrap |
 | `job/` | Job types and URL normalization |

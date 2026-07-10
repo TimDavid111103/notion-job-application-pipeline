@@ -58,4 +58,4 @@ When starting a job (before `fill:application` opens the URL), call MCP:
 
 ## Handoff summary
 
-`fill:application` prints filled fields and unfilled fields with suggested answers. User completes sensitive fields and unmatched questions manually in the browser.
+After pre-fill, the process waits so Chrome stays open; AskQuestion during that wait. Details: [protocol/agent-runtime.md](../protocol/agent-runtime.md).

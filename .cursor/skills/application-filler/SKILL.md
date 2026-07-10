@@ -1,6 +1,6 @@
 ---
 name: application-filler
-description: Headed Playwright application filling for Application Tracker jobs with Job Match set, descriptions present, and non-terminal Status. Pre-fills forms from personal-information.md, projects.md, and answers.md; updates Status to In Progress and Applied; removes dead URLs. Use when applying to jobs, filling applications, or running the fill pipeline.
+description: Headed Playwright application filling for Application Tracker jobs with Job Match set, descriptions present, and non-terminal Status. Pre-fills from personal-information, skills-profile, projects, answers, and cover-letter assets; updates Status; removes dead URLs. Use when applying to jobs, filling applications, or running the fill pipeline.
 disable-model-invocation: true
 ---
 
@@ -55,12 +55,7 @@ bash .cursor/skills/application-filler/scripts/setup.sh
 
 ## 2. References verified
 
-Confirm these files exist and are populated. **Do not search the filesystem** for the resume — if missing, stop and ask the user to copy it.
-
-- `.cursor/skills/application-filler/assets/personal-information.md` — standard form fields
-- `.cursor/skills/application-filler/assets/projects.md` — project write-ups
-- `.cursor/skills/application-filler/assets/answers.md` — screening Q&A exemplars
-- `.cursor/skills/application-filler/assets/documents/resume.pdf` — resume for file uploads (required)
+Confirm fill assets exist and are populated (list and rules: [domain/fill-references.md](domain/fill-references.md)). **Required:** `assets/documents/resume.pdf` — if missing, stop and ask the user to copy it (do not search the filesystem).
 
 → [fill-references.md](domain/fill-references.md)
 
@@ -93,7 +88,8 @@ npm run write:jobs-ready-to-apply -- /path/to/mcp-query.json
 ## 5. Build fill queue
 
 For each row, call MCP `read_page` (`max_blocks: 5`). Include only when page body has a
-description (`!isEmptyPageMarkdown`) and Job URL is non-empty.
+description (`!isEmptyPageMarkdown`) and Job URL is non-empty. Prefer attaching the page
+description text as `jobDescription` on each queue item (needed for AI-fill / cover letter).
 
 ```bash
 npm run write:fill-queue -- /path/to/queue-items.json
@@ -144,7 +140,9 @@ call MCP `delete_database_entry`.
 
 Opens a visible browser, pre-fills fields, leaves the tab open. **Handoff is in chat** — use AskQuestion (multiple choice): Applied / Invalid / Feedback. Do **not** use Playwright inspector (`AUTO_PAUSE` is off by default).
 
-**Must run outside the Cursor sandbox** (`required_permissions: ["all"]`).
+**Must run outside the Cursor sandbox** (`required_permissions: ["all"]`). **Background the fill process** so chat does not kill Chrome — see [protocol/agent-runtime.md](protocol/agent-runtime.md).
+
+Before fill: write `data/fill/ai-answers.json` for open-ended fields (JD + assets), unless LLM API keys are set for live generation — see [domain/fill-references.md](domain/fill-references.md).
 
 ```bash
 HEADED=1 npm run fill:application

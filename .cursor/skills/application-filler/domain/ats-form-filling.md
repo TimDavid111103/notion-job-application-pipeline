@@ -1,16 +1,23 @@
 # ATS Form Filling
 
-Playwright heuristics for step 9. Implementation: `scripts/lib/fill/application-fill.ts`.
+Playwright heuristics for step 9. Implementation: `scripts/lib/fill/application-fill.ts`, `ai-fill.ts`.  
+Field values: [fill-references.md](fill-references.md).
+
+**Principle:** upload resume → strip ATS-injected work history → **auto-fill** structured fields from assets → **AI-fill** open-ended text (answers/projects + Notion JD) → cover letter from template → chat handoff.
+
+**Additive ATS quirks:** prefer host-agnostic discovery and fill. When a site needs an extra selector or delete strategy, **add a fallback** — do not replace the generic path (so Greenhouse / Lever / Ashby / Breezy keep working).
 
 ## Flow per job
 
-1. Navigate to Job URL (`normalizeScrapeUrl`)
-2. Click Apply / open application form (host-specific)
-3. Discover visible inputs, textareas, selects, file inputs
-4. **Upload resume first** (`.cursor/skills/application-filler/assets/documents/resume.pdf` on resume/CV file inputs)
-5. **Wait** until resume processing/analyzing UI finishes (then re-discover fields)
-6. Fill remaining fields from references — overwrite any ATS autofill
-7. Handoff in chat — AskQuestion: Applied / Invalid / Feedback (no Playwright inspector unless `AUTO_PAUSE=1`)
+1. Navigate to Job URL; click Apply (host-specific table below)
+2. Prep AI-fill: `data/fill/ai-answers.json` from page JD + assets, or live LLM via API keys
+3. Discover fields (group questions for radios/checkboxes; `label[for]` / `data-field-path` when `id`/`name` missing)
+4. Upload resume; wait for processing UI to settle
+5. Strip ATS work-experience rows (Delete controls + clear leftover company/title/summary); fill education dates when present
+6. Re-discover; auto-fill text / selects / multi-selects / consent / EEO / skills (overwrite ATS)
+7. AI-fill open-ended textareas — never paste raw `answers.md` exemplars alone
+8. Cover letter: `cover-letter.md` (textarea) or `cover-letter-template.pdf` (file)
+9. Chat handoff — AskQuestion: Applied / Invalid / Feedback (`AUTO_PAUSE` off)
 
 ## Host-specific Apply navigation
 
@@ -21,26 +28,11 @@ Playwright heuristics for step 9. Implementation: `scripts/lib/fill/application-
 | `jobs.ashbyhq.com` | Link/button with `application` in href |
 | Other | First button/link matching `/apply/i` |
 
-## Field discovery
-
-Labels from: associated `<label>`, `aria-label`, `placeholder`, `name` attribute.
-
-## Resume upload (before other fields)
-
-1. Upload resume/CV file input(s) first.
-2. If the page shows resume processing (e.g. analyzing / processing / parsing resume), wait until it completes.
-3. Re-discover fields, then fill text/selects from references (overwrite existing values).
-
 ## Submission
 
-**Do not submit** unless `AUTO_SUBMIT=1` (default off). User reviews in headed browser.
+**Do not submit** unless `AUTO_SUBMIT=1` (default off).
 
-## v1 scope
+## Scope
 
-Greenhouse, Lever, Ashby, Workday (basic), generic fallback for other ATS hosts.
-
-## Out of scope (v1)
-
-- Handshake in-app apply
-- Multi-page Workday wizards
-- Account creation flows
+**In:** Greenhouse, Lever, Ashby, Workday (basic), Breezy/generic fallback.  
+**Out:** Handshake in-app apply, multi-page Workday wizards, account creation.
