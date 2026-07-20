@@ -91,6 +91,14 @@ const LABEL_ALIASES: Record<string, string[]> = {
   country: ["nation"],
   linkedin: ["linkedin url", "linkedin profile"],
   github: ["github url", "github profile"],
+  "portfolio url": ["portfolio link", "personal website", "personal site", "website url"],
+  "current company": [
+    "current employer",
+    "most recent employer",
+    "present company",
+    "present employer",
+    "employer name",
+  ],
   "authorized to work in the us": ["legally authorized", "work authorization", "authorized to work"],
   "require visa sponsorship now or in future": ["sponsorship", "visa sponsorship", "require sponsorship"],
   school: ["university", "college", "institution"],
@@ -114,6 +122,11 @@ export function normalizeLabel(label: string): string {
   return label
     .toLowerCase()
     .replace(/[*_：:]/g, "")
+    .replace(/you're/g, "you are")
+    .replace(/i'm/g, "i am")
+    .replace(/it's/g, "it is")
+    .replace(/['']/g, "")
+    .replace(/[^\p{L}\p{N}\s]+/gu, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -238,6 +251,48 @@ function labelContainsAlias(label: string, alias: string): boolean {
 
 function matchPersonalInfo(label: string, personal: Map<string, string>): string | null {
   const norm = normalizeLabel(label);
+
+  // Unemployed / between roles → explicit N/A (do not leave ATS resume-parsed employer).
+  if (/current\s*(company|employer)|present\s*(company|employer)|most\s*recent\s*employer/i.test(norm)) {
+    return personal.get("current company") ?? "N/A";
+  }
+
+  // Portfolio URL fields are the GitHub link — not project essay text.
+  if (/portfolio\s*(url|link)|personal\s*(website|site|url)|website\s*url/i.test(norm)) {
+    return personal.get("portfolio url") ?? personal.get("github") ?? null;
+  }
+
+  // Current location / location → "City, State" (not city alone via alias).
+  if (/\blocation\b/i.test(norm) && !/linkedin|github|url|timezone/i.test(norm)) {
+    const city = personal.get("city");
+    const state = personal.get(normalizeLabel("state / region"));
+    if (city && state) return `${city}, ${state}`;
+    if (city) return city;
+    const mailing = personal.get("mailing address");
+    if (mailing) {
+      const parts = mailing.split(",").map((p) => p.trim());
+      if (parts.length >= 2) return `${parts[0]}, ${parts[1]}`;
+      return mailing;
+    }
+  }
+
+  // Salary: annual expectation lives in assets; convert when the form asks monthly.
+  if (/\bsalary\b|\bcompensation\b|\bpay\b/i.test(norm)) {
+    const annualRaw = personal.get("salary expectation") ?? personal.get("salary default");
+    const annual = annualRaw ? Number(String(annualRaw).replace(/[^\d.]/g, "")) : NaN;
+    if (Number.isFinite(annual) && annual > 0) {
+      if (/\bper\s*month\b|\bmonthly\b|\/\s*mo\b/i.test(norm)) {
+        return String(Math.round(annual / 12));
+      }
+      return String(Math.round(annual));
+    }
+  }
+
+  // Workable phone helper copy used as the accessible name.
+  if (/hiring team may use this number|phone number|mobile|telephone|\bphone\b/i.test(norm)) {
+    return personal.get("phone") ?? null;
+  }
+
   if (personal.has(norm)) return personal.get(norm)!;
 
   // Avoid matching generic "start date" / "end date" outside education context to work-history dates.
@@ -260,15 +315,23 @@ function matchPersonalInfo(label: string, personal: Map<string, string>): string
       }
     }
     if (norm.includes(keyNorm) || keyNorm.includes(norm)) {
+      // Avoid "portfolio url" matching a bare "portfolio" essay field.
+      if (keyNorm === "portfolio url" && !/\b(url|link|website|site)\b/i.test(norm)) {
+        continue;
+      }
+      // City aliases include "current location" — already handled above as City, State.
+      if (keyNorm === "city" && /\blocation\b/i.test(norm)) continue;
+      // Don't let short keys like "age" match inside longer words (e.g. "scalable").
+      if (keyNorm.length <= 4 && !new RegExp(`\\b${keyNorm}\\b`, "i").test(norm)) continue;
       const val = personal.get(keyNorm);
       if (val) return val;
     }
     for (const alias of aliases) {
       if (labelContainsAlias(norm, alias)) {
-        // "location" alone → city; "start date" alone is too ambiguous unless education-ish
         if (alias === "start date" || alias === "end date") {
           if (!isEduContext) continue;
         }
+        if (keyNorm === "city" && /\blocation\b/i.test(norm)) continue;
         const val = personal.get(keyNorm);
         if (val) return val;
       }
@@ -283,27 +346,20 @@ function matchPersonalInfo(label: string, personal: Map<string, string>): string
     if (explicit) return explicit;
   }
 
-  // Location fields: prefer "City, State" composition
-  if (/\blocation\b/i.test(norm) && !/linkedin|github|url/i.test(norm)) {
-    const city = personal.get("city");
-    const state = personal.get("state / region");
-    const country = personal.get("country");
-    if (city && state) return `${city}, ${state}`;
-    if (city) return city;
-    const mailing = personal.get("mailing address");
-    if (mailing) return mailing;
-    if (country) return country;
-  }
-
+  // Strict final pass — require word-boundary key match; skip very short keys.
   for (const [key, value] of personal) {
-    if (norm.includes(key) || key.includes(norm)) return value;
+    if (key.length < 4) continue;
+    const re = new RegExp(`\\b${key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
+    if (re.test(norm)) return value;
   }
   return null;
 }
 
 function isProjectField(label: string): boolean {
   const norm = normalizeLabel(label);
-  return /project|portfolio|built|github\s*repo|side\s*project|personal\s*project/i.test(norm);
+  // Link fields belong to personal-information (GitHub / portfolio URL), not project write-ups.
+  if (/\burl\b|website|portfolio\s*link|personal\s*site/i.test(norm)) return false;
+  return /project|built|github\s*repo|side\s*project|personal\s*project/i.test(norm);
 }
 
 function matchProject(label: string, projects: ProjectEntry[]): string | null {
@@ -670,11 +726,14 @@ export function isOpenEndedField(label: string, type: string): boolean {
   if (type !== "textarea" && type !== "text") return false;
   const norm = normalizeLabel(label);
   if (isCoverLetterField(norm)) return false;
-  if (/name|email|phone|address|linkedin|github|salary|date|school|university/i.test(norm)) {
+  // Word boundaries — avoid "linkedin"/"name" substring false positives on long questions.
+  if (
+    /\b(name|email|phone|address|linkedin|github|salary|date|school|university)\b/i.test(norm)
+  ) {
     return false;
   }
   return (
-    /describe|tell us|tell me|walk me|how have|how do|what methods|why |explain|challenging|experience with|open.?ended/i.test(
+    /describe|tell us|tell me|walk me|how have|how do|what (experience|methods)|why |explain|challenging|experience with|open.?ended|approach|integrat/i.test(
       norm
     ) || type === "textarea"
   );

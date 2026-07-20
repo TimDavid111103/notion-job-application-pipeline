@@ -5,11 +5,21 @@ Field values: [fill-references.md](fill-references.md).
 
 **Principle:** upload resume → strip ATS-injected work history → **auto-fill** structured fields from assets → **AI-fill** open-ended text (answers/projects + Notion JD) → cover letter from template → chat handoff.
 
-**Additive ATS quirks:** prefer host-agnostic discovery and fill. When a site needs an extra selector or delete strategy, **add a fallback** — do not replace the generic path (so Greenhouse / Lever / Ashby / Breezy keep working).
+**Anti-bot launch (keep these):** CDP-attached system Chrome (not `chromium.launch`),
+strip `--enable-automation`, `--disable-blink-features=AutomationControlled`, clear
+Playwright markers (`__pwInitScripts`), set `navigator.webdriver` to `false`.
+
+**Anti-bot input (`ANTI_BOT=1` or with `AUTO_SUBMIT=1`):** page warm-up scroll, mouse
+move before fields, keystroke/clipboard paste instead of instant `.fill()`.
+
+**Auto-submit (`AUTO_SUBMIT=1`):** disconnect CDP → macOS Accessibility click Submit →
+reconnect and classify spam vs success. Requires Accessibility permission for Cursor.
+
+**Workable quirks:** dismiss cookie banners first; prefer `input.labels` for field titles (wrapping labels); unlabeled required file inputs next to “Resume” still upload; convert annual salary → monthly when the label says per month; skip website NPS widgets.
 
 ## Flow per job
 
-1. Navigate to Job URL; click Apply (host-specific table below)
+1. Navigate to Job URL; **dismiss cookie banners** (`Accept all cookies` / `Accept all` / etc.); click Apply (host-specific table below)
 2. Prep AI-fill: `data/fill/ai-answers.json` from page JD + assets, or live LLM via API keys
 3. Discover fields (group questions for radios/checkboxes; `label[for]` / `data-field-path` when `id`/`name` missing)
 4. Upload resume; wait for processing UI to settle
@@ -26,6 +36,8 @@ Field values: [fill-references.md](fill-references.md).
 | `greenhouse.io` | Link/button "Apply" |
 | `jobs.lever.co` | Link "Apply" |
 | `jobs.ashbyhq.com` | Link/button with `application` in href |
+| `myworkdayjobs.com` | Apply → prefer Autofill with Resume |
+| `jobs.workable.com` | Link/button "Apply" (after cookie accept) |
 | Other | First button/link matching `/apply/i` |
 
 ## Submission

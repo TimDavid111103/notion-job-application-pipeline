@@ -43,6 +43,8 @@ Live PII copies are gitignored; schema template: `assets/personal-information.te
 - **Salary** — midpoint of asset/posting range when a range exists; otherwise `Salary default`.
 - **Experience / tech** — skills-profile defaults (years band, max proficiency for in-scope tech, primary > secondary, never outside scope).
 - **Sponsorship** — “authorized **without** sponsorship?” → **No** when `Require visa sponsorship` is Yes (even if authorized to work).
+- **Current company** — `N/A` when not employed (`Current company` in personal-information); overwrite ATS resume-parsed employers.
+- **Portfolio URL** — GitHub profile URL (same as `GitHub` / `Portfolio URL` in personal-information), not project essay text.
 - **Cover letter** — full `cover-letter.md` body; only the last paragraph’s placeholders are JD-tailored (`[COMPANY]`, mission/value, two skills).
 - **Resume** — canonical path only; fail fast if missing.
 - **Sensitive** — never auto-fill SSN, passport, driver’s license, government ID, bank/card, passwords.

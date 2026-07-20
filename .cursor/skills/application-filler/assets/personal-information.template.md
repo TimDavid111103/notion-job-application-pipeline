@@ -17,6 +17,8 @@ Copy to `.cursor/skills/application-filler/assets/personal-information.md` and f
 | Mailing address | |
 | LinkedIn | |
 | GitHub | |
+| Portfolio URL | |
+| Current company | N/A |
 
 ## Work authorization
 | Field | Value |

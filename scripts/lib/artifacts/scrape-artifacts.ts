@@ -11,6 +11,7 @@ export type BrokenReason =
   | "timeout"
   | "login_required"
   | "captcha"
+  | "spam_flag"
   | "empty_content"
   | "posting_closed"
   | "navigation_error"
@@ -23,6 +24,7 @@ const BROKEN_REASONS = new Set<string>([
   "timeout",
   "login_required",
   "captcha",
+  "spam_flag",
   "empty_content",
   "posting_closed",
   "navigation_error",

@@ -24,17 +24,57 @@ import {
 } from "./fill-references.js";
 import { getAiCoverLetter, resolveAiFill } from "./ai-fill.js";
 import { checkUrlHealth } from "../url-health.js";
+import {
+  antiBotEnabled,
+  humanPause,
+  humanTypeValue,
+  warmUpPage,
+} from "../browser/stealth.js";
 
 const APPLY_BUTTON_PATTERNS = [
+  /apply\s*manually/i,
   /apply\s*(now)?/i,
   /submit\s*application/i,
   /start\s*application/i,
 ];
 
+const COOKIE_ACCEPT_PATTERNS = [
+  /accept\s*all\s*cookies/i,
+  /accept\s*all/i,
+  /allow\s*all\s*cookies/i,
+  /allow\s*all/i,
+  /^accept$/i,
+  /agree\s*and\s*continue/i,
+  /i\s*agree/i,
+];
+
+/** Dismiss cookie / consent overlays that block Apply and form fields (Workable, Workday, etc.). */
+export async function dismissCookieBanner(page: Page): Promise<boolean> {
+  for (const re of COOKIE_ACCEPT_PATTERNS) {
+    const btn = page.getByRole("button", { name: re }).first();
+    if (await btn.isVisible().catch(() => false)) {
+      await btn.click({ timeout: 3_000 }).catch(() => {});
+      await page.waitForTimeout(500);
+      return true;
+    }
+  }
+  // Some banners use links or custom roles.
+  for (const re of COOKIE_ACCEPT_PATTERNS) {
+    const el = page.locator("button, a, [role='button']").filter({ hasText: re }).first();
+    if (await el.isVisible().catch(() => false)) {
+      await el.click({ timeout: 3_000 }).catch(() => {});
+      await page.waitForTimeout(500);
+      return true;
+    }
+  }
+  return false;
+}
+
 export async function navigateToApplicationForm(page: Page, rawUrl: string): Promise<void> {
   const url = normalizeScrapeUrl(cleanJobUrl(rawUrl));
   await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60_000 });
   await page.waitForTimeout(2000);
+  await dismissCookieBanner(page);
 
   const host = new URL(page.url()).hostname.toLowerCase();
 
@@ -43,6 +83,7 @@ export async function navigateToApplicationForm(page: Page, rawUrl: string): Pro
     if (await applyBtn.first().isVisible().catch(() => false)) {
       await applyBtn.first().click();
       await page.waitForTimeout(2000);
+      await dismissCookieBanner(page);
     }
     return;
   }
@@ -52,6 +93,7 @@ export async function navigateToApplicationForm(page: Page, rawUrl: string): Pro
     if (await applyBtn.first().isVisible().catch(() => false)) {
       await applyBtn.first().click();
       await page.waitForTimeout(2000);
+      await dismissCookieBanner(page);
     }
     return;
   }
@@ -61,7 +103,55 @@ export async function navigateToApplicationForm(page: Page, rawUrl: string): Pro
     if (await applyBtn.first().isVisible().catch(() => false)) {
       await applyBtn.first().click();
       await page.waitForTimeout(2000);
+      await dismissCookieBanner(page);
     }
+    return;
+  }
+
+  if (host.includes("myworkdayjobs.com") || host.includes("workday.com")) {
+    await dismissCookieBanner(page);
+    const apply = page
+      .locator('[data-automation-id="adventureButton"]')
+      .or(page.getByRole("button", { name: /^apply$/i }))
+      .first();
+    if (await apply.isVisible().catch(() => false)) {
+      await apply.click();
+      await page.waitForTimeout(1500);
+    }
+    // Prefer Autofill with Resume over Apply Manually when the modal appears.
+    const autofill = page
+      .locator('[data-automation-id="autofillWithResume"]')
+      .or(page.getByRole("button", { name: /autofill with resume/i }))
+      .first();
+    const applyManual = page
+      .locator('[data-automation-id="applyManually"]')
+      .or(page.getByRole("button", { name: /apply manually/i }))
+      .first();
+    if (await autofill.isVisible().catch(() => false)) {
+      await autofill.click();
+      await page.waitForTimeout(2500);
+    } else if (await applyManual.isVisible().catch(() => false)) {
+      await applyManual.click();
+      await page.waitForTimeout(2500);
+    }
+    await dismissCookieBanner(page);
+    return;
+  }
+
+  // Workable and generic hosts
+  if (host.includes("workable.com")) {
+    const applyBtn = page.getByRole("link", { name: /apply/i }).or(page.getByRole("button", { name: /apply/i }));
+    if (await applyBtn.first().isVisible().catch(() => false)) {
+      await applyBtn.first().click();
+      await page.waitForTimeout(2000);
+      await dismissCookieBanner(page);
+    }
+    // Wait for the application form — not just the job description shell.
+    await page.locator("#firstname, input[name='firstname'], input[type='email']").first().waitFor({
+      state: "visible",
+      timeout: 20_000,
+    }).catch(() => {});
+    await page.waitForTimeout(500);
     return;
   }
 
@@ -72,6 +162,7 @@ export async function navigateToApplicationForm(page: Page, rawUrl: string): Pro
       try {
         await btn.click();
         await page.waitForTimeout(2000);
+        await dismissCookieBanner(page);
         break;
       } catch {
         /* try next */
@@ -162,11 +253,27 @@ async function discoverFields(page: Page): Promise<DiscoveredField[]> {
     };
 
     const labelFor = (el: Element): string => {
+      const input = el as HTMLInputElement;
+      // Prefer the browser-associated <label> (works for wrapping labels without for=).
+      if (input.labels && input.labels.length > 0) {
+        const lab = input.labels[0]!;
+        // Clone and strip controls — wrapping labels' innerText includes sibling field values.
+        const clone = lab.cloneNode(true) as HTMLElement;
+        clone.querySelectorAll("input, textarea, select, button").forEach((n) => n.remove());
+        let raw = clean(clone.textContent ?? "");
+        raw = raw.replace(/https?:\/\/\S+/gi, "").replace(/\s+/g, " ").trim();
+        const first = raw.split(/\n/).map((s) => clean(s)).find((s) => s.length > 0) ?? raw;
+        if (first && first.length <= 300) return first.replace(/^\*+\s*/, "").trim() || first;
+      }
       const id = el.getAttribute("id");
       if (id) {
         const label = document.querySelector(`label[for="${CSS.escape(id)}"]`);
-        const t = clean(label?.textContent ?? "");
-        if (isQuestionLike(t) || (t && t.length <= 80)) return t;
+        if (label) {
+          const clone = label.cloneNode(true) as HTMLElement;
+          clone.querySelectorAll("input, textarea, select, button").forEach((n) => n.remove());
+          const t = clean(clone.textContent ?? "");
+          if (isQuestionLike(t) || (t && t.length <= 80)) return t;
+        }
       }
       const dataPath =
         el.closest("[data-field-path]")?.getAttribute("data-field-path") ??
@@ -183,8 +290,10 @@ async function discoverFields(page: Page): Promise<DiscoveredField[]> {
       if (group) return group;
 
       const parentLabel = el.closest("label");
-      if (parentLabel?.textContent) {
-        const t = clean(parentLabel.textContent);
+      if (parentLabel) {
+        const clone = parentLabel.cloneNode(true) as HTMLElement;
+        clone.querySelectorAll("input, textarea, select, button").forEach((n) => n.remove());
+        const t = clean(clone.textContent ?? "");
         if (t.length > 0 && t.length < 80) return t;
       }
       const placeholder = (el as HTMLInputElement).placeholder;
@@ -216,12 +325,18 @@ async function discoverFields(page: Page): Promise<DiscoveredField[]> {
     const add = (el: Element, type: DiscoveredField["type"], extra?: Partial<DiscoveredField>) => {
       let label = extra?.label ?? labelFor(el);
       const nameAttr = el.getAttribute("name") ?? extra?.groupKey ?? "";
+      const inputType = (el as HTMLInputElement).type ?? "";
       if (/^race_ethnicity$/i.test(nameAttr)) label = "Race or Ethnicity";
       if (/^gender$/i.test(nameAttr)) label = "Gender";
       if (/^ccpaAgreement$/i.test(nameAttr)) label = "Privacy policy consent";
       if (/^salaryCurrency$/i.test(nameAttr)) label = "Salary currency";
+      if (/^phone$/i.test(nameAttr) || inputType === "tel") label = "Phone";
+      if (/^email$/i.test(nameAttr) || inputType === "email") label = "Email";
+      if (/^firstname$/i.test(nameAttr)) label = "First name";
+      if (/^lastname$/i.test(nameAttr)) label = "Last name";
       if (!label || OPTION_ONLY.test(label)) return;
-      if ((label.match(/\?/g) ?? []).length > 1) return;
+      // Multi-sentence screening questions often contain 2+ '?'; only reject that for choice widgets.
+      if (type !== "textarea" && type !== "text" && (label.match(/\?/g) ?? []).length > 1) return;
       const selector = extra?.selector ?? selectorFor(el);
       if (!selector) return;
       const key = `${type}|${normalizeKey(label)}|${extra?.groupKey ?? selector}`;
@@ -329,9 +444,13 @@ async function fillTextField(page: Page, field: DiscoveredField, value: string):
   try {
     const locator = page.locator(field.selector).first();
     if (!(await locator.isVisible().catch(() => false))) return false;
-    await locator.click({ clickCount: 3 }).catch(() => {});
-    await locator.fill("");
-    await locator.fill(value);
+    if (antiBotEnabled()) {
+      await humanTypeValue(page, locator, value);
+    } else {
+      await locator.click({ clickCount: 3 }).catch(() => {});
+      await locator.fill("");
+      await locator.fill(value);
+    }
     return true;
   } catch {
     return false;
@@ -342,9 +461,13 @@ async function fillComboboxField(page: Page, field: DiscoveredField, value: stri
   try {
     const locator = page.locator(field.selector).first();
     if (!(await locator.isVisible().catch(() => false))) return false;
-    await locator.click();
-    await locator.fill("");
-    await locator.fill(value);
+    if (antiBotEnabled()) {
+      await humanTypeValue(page, locator, value);
+    } else {
+      await locator.click();
+      await locator.fill("");
+      await locator.fill(value);
+    }
     await page.waitForTimeout(700);
     const option = page.getByRole("option").filter({ hasText: new RegExp(value.split(",")[0]!.trim(), "i") }).first();
     if (await option.isVisible().catch(() => false)) {
@@ -368,6 +491,15 @@ async function fillComboboxField(page: Page, field: DiscoveredField, value: stri
 function isHoneypotField(label: string): boolean {
   const norm = normalizeLabel(label);
   return /^hp\b/.test(norm) || /honeypot|catchpa|captcha_id|recaptcha/i.test(norm);
+}
+
+/** Site chrome / NPS — skip, not application answers. */
+function isIgnorableField(label: string): boolean {
+  const norm = normalizeLabel(label);
+  return (
+    /how was your experience on this website/i.test(norm) ||
+    /personal information\s*clear/i.test(norm)
+  );
 }
 
 async function fillSelectField(page: Page, field: DiscoveredField, value: string): Promise<boolean> {
@@ -526,7 +658,9 @@ async function fillFileField(page: Page, field: DiscoveredField, filePath: strin
 }
 
 function isResumeField(label: string): boolean {
-  return /resume|cv|curriculum/i.test(normalizeLabel(label));
+  const norm = normalizeLabel(label);
+  if (!norm) return false;
+  return /resume|cv|curriculum/i.test(norm);
 }
 
 /** Visible copy that means the ATS is still parsing an uploaded resume. */
@@ -579,7 +713,32 @@ async function uploadResumeFirst(
   filledFields: string[],
   unfilledFields: UnfilledField[]
 ): Promise<boolean> {
-  const resumeFields = fields.filter((f) => f.type === "file" && isResumeField(f.label));
+  let resumeFields = fields.filter((f) => f.type === "file" && isResumeField(f.label));
+  // Workable: unlabeled file input whose nearest text is Resume/CV (skip SVG/browser chrome inputs).
+  if (resumeFields.length === 0) {
+    const resumeSelector = await page.evaluate(() => {
+      const inputs = [...document.querySelectorAll('input[type="file"]')] as HTMLInputElement[];
+      for (const input of inputs) {
+        const wrap = input.closest("div, section, li, fieldset, form") ?? input.parentElement;
+        const text = (wrap?.textContent ?? "").replace(/\s+/g, " ");
+        if (/svg|not supported by this browser/i.test(text) && !/resume|\bcv\b/i.test(text)) continue;
+        if (/resume|\bcv\b|curriculum/i.test(text)) {
+          if (input.id) return `#${CSS.escape(input.id)}`;
+          if (input.name) return `input[type="file"][name="${CSS.escape(input.name)}"]`;
+        }
+      }
+      // Fallback: first file input not inside an SVG-warning block
+      for (const input of inputs) {
+        const text = (input.closest("div")?.textContent ?? "").replace(/\s+/g, " ");
+        if (/svg|not supported by this browser/i.test(text)) continue;
+        if (input.id) return `#${CSS.escape(input.id)}`;
+      }
+      return null;
+    });
+    if (resumeSelector) {
+      resumeFields = [{ label: "Resume", type: "file", selector: resumeSelector }];
+    }
+  }
   if (resumeFields.length === 0) return false;
 
   const resumePath = getResumePath(refs);
@@ -587,11 +746,11 @@ async function uploadResumeFirst(
   for (const field of resumeFields) {
     const ok = await fillFileField(page, field, resumePath);
     if (ok) {
-      filledFields.push(field.label);
+      filledFields.push(field.label || "Resume");
       uploaded = true;
     } else {
       unfilledFields.push({
-        label: field.label,
+        label: field.label || "Resume",
         suggestedAnswer: null,
         reason: "file_missing",
         source: null,
@@ -850,7 +1009,15 @@ export async function fillApplicationForm(
     };
   }
 
+  if (antiBotEnabled()) {
+    console.log("ANTI_BOT: warm-up scroll + human-paced input enabled");
+    await warmUpPage(page);
+  }
+
   let fields = await discoverFields(page);
+  console.log(
+    `Discovered ${fields.length} fields: ${fields.map((f) => `${f.type}:${f.label.slice(0, 40)}`).join(" | ")}`
+  );
   await uploadResumeFirst(page, fields, refs, filledFields, unfilledFields);
   // Re-discover after resume autofill may rewrite the form.
   fields = await discoverFields(page);
@@ -871,11 +1038,11 @@ export async function fillApplicationForm(
       continue;
     }
 
-    if (isHoneypotField(field.label)) {
+    if (isHoneypotField(field.label) || isIgnorableField(field.label)) {
       continue;
     }
 
-    if (field.type === "file" && isResumeField(field.label)) {
+    if (field.type === "file" && (isResumeField(field.label) || !field.label)) {
       continue;
     }
 
@@ -985,11 +1152,13 @@ export async function fillApplicationForm(
         source: aiCover ? "ai-answers.json" : "cover-letter.md",
         confidence: "high",
       };
-    } else if (!lookup.value && isOpenEndedField(field.label, field.type)) {
-      // AI-fill path — never paste raw answers.md exemplars without JD-aware generation
+    } else if (isOpenEndedField(field.label, field.type)) {
+      // Open-ended: AI-fill first (never prefer raw projects/answers paste over JD-aware text)
       const ai = await resolveAiFill(field.label, refs, ctx, item.page_id);
       if (ai) {
         lookup = { value: ai.value, source: ai.source, confidence: "high" };
+      } else if (lookup.value && (lookup.source === "projects.md" || lookup.source === "answers.md")) {
+        lookup = { value: "", source: lookup.source, confidence: "low", reason: "no_match" };
       }
     }
 
@@ -1049,6 +1218,160 @@ export async function fillApplicationForm(
     error: null,
     deletable: false,
   };
+}
+
+const SPAM_FLAG_PATTERNS = [
+  /flagged as possible spam/i,
+  /flagged as spam/i,
+  /couldn'?t submit your application/i,
+  /looks like spam/i,
+  /bot detected/i,
+  /verify you(?:'| a)re human/i,
+  /please complete the captcha/i,
+];
+
+const SUBMIT_SUCCESS_PATTERNS = [
+  /thank you for (applying|your application)/i,
+  /application (has been )?submitted/i,
+  /we(?:'| ha)ve received your (application|submission)/i,
+  /successfully submitted/i,
+];
+
+export interface SubmitOutcome {
+  clicked: boolean;
+  spam: boolean;
+  success: boolean;
+  message: string | null;
+}
+
+/** Read visible page text for spam / success signals after submit. */
+export async function detectSubmitOutcome(page: Page): Promise<Omit<SubmitOutcome, "clicked">> {
+  const bodyText = await page.evaluate(() => document.body?.innerText ?? "").catch(() => "");
+  const sample = bodyText.slice(0, 8000);
+  const spamHit = SPAM_FLAG_PATTERNS.find((re) => re.test(sample));
+  if (spamHit) {
+    return { spam: true, success: false, message: `spam_flag matched ${spamHit}` };
+  }
+  const okHit = SUBMIT_SUCCESS_PATTERNS.find((re) => re.test(sample));
+  if (okHit) {
+    return { spam: false, success: true, message: `success matched ${okHit}` };
+  }
+  return { spam: false, success: false, message: null };
+}
+
+/** Fallback in-page submit when CDP/OS path is unavailable. */
+export async function submitApplicationForm(page: Page): Promise<SubmitOutcome> {
+  const candidates = [
+    page.getByRole("button", { name: /submit application/i }),
+    page.getByRole("button", { name: /^submit$/i }),
+    page.getByRole("button", { name: /apply( now)?$/i }),
+    page.locator('button[type="submit"]'),
+  ];
+  let target = null as ReturnType<Page["locator"]> | null;
+  for (const loc of candidates) {
+    const first = loc.first();
+    if (await first.isVisible().catch(() => false)) {
+      target = first;
+      break;
+    }
+  }
+  if (!target) {
+    return { clicked: false, spam: false, success: false, message: "submit_button_not_found" };
+  }
+  await target.scrollIntoViewIfNeeded().catch(() => {});
+  await target.click({ delay: 40 });
+  await page.waitForTimeout(2500);
+  const detected = await detectSubmitOutcome(page);
+  return { clicked: true, ...detected };
+}
+
+/**
+ * Click Submit via macOS Accessibility after CDP disconnect.
+ * Highest practical success vs Ashby spam (no DevTools client attached at click time).
+ */
+export async function submitApplicationViaOsClick(
+  screenPoint?: { x: number; y: number }
+): Promise<{ clicked: boolean; message: string }> {
+  const { execFile } = await import("node:child_process");
+  const { promisify } = await import("node:util");
+  const execFileAsync = promisify(execFile);
+
+  const axScript = `
+tell application "Google Chrome" to activate
+delay 0.4
+tell application "System Events"
+  tell process "Google Chrome"
+    set frontmost to true
+    delay 0.25
+    try
+      click (first button whose name contains "Submit Application")
+      return "clicked_ax"
+    on error err1
+      try
+        click (first button whose name contains "Submit")
+        return "clicked_ax_submit"
+      on error err2
+        return "missing_ax:" & err1 & " / " & err2
+      end try
+    end try
+  end tell
+end tell
+`;
+  try {
+    const { stdout } = await execFileAsync("osascript", ["-e", axScript], { timeout: 20_000 });
+    const out = stdout.trim();
+    if (/^clicked/.test(out)) return { clicked: true, message: `osascript:${out}` };
+    console.warn(`AX click miss: ${out}`);
+  } catch (err) {
+    console.warn(`AX click failed: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
+  if (screenPoint) {
+    const x = Math.round(screenPoint.x);
+    const y = Math.round(screenPoint.y);
+    const script = `
+tell application "Google Chrome" to activate
+delay 0.2
+tell application "System Events" to click at {${x}, ${y}}
+return "clicked_xy"
+`;
+    try {
+      const { stdout } = await execFileAsync("osascript", ["-e", script], { timeout: 10_000 });
+      return { clicked: true, message: `osascript:${stdout.trim() || "clicked_xy"}` };
+    } catch (err) {
+      return {
+        clicked: false,
+        message: `osascript_error:${err instanceof Error ? err.message : String(err)}`,
+      };
+    }
+  }
+  return { clicked: false, message: "osascript:all_strategies_failed" };
+}
+
+/** Screen coordinates for Submit (fallback when AX cannot see the button). */
+export async function getSubmitButtonScreenPoint(
+  page: Page
+): Promise<{ x: number; y: number } | null> {
+  const btn = page.getByRole("button", { name: /submit application/i }).first();
+  if (!(await btn.isVisible().catch(() => false))) return null;
+  await btn.scrollIntoViewIfNeeded().catch(() => {});
+  const box = await btn.boundingBox();
+  if (!box) return null;
+  const win = await page.evaluate(() => ({
+    screenX: window.screenX,
+    screenY: window.screenY,
+    outerHeight: window.outerHeight,
+    innerHeight: window.innerHeight,
+  }));
+  const chromeH = Math.max(0, win.outerHeight - win.innerHeight);
+  return {
+    x: win.screenX + box.x + box.width / 2,
+    y: win.screenY + chromeH + box.y + box.height / 2,
+  };
+}
+
+export function shouldAutoSubmit(): boolean {
+  return process.env.AUTO_SUBMIT === "1";
 }
 
 export async function fillApplicationWithHealthCheck(

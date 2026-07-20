@@ -34,7 +34,7 @@ const APPLICATION_FORM_PATTERNS = [
   /file exceeds the maximum upload size/i,
 ];
 
-const NON_DELETABLE_REASONS = new Set<BrokenReason>(["login_required", "captcha"]);
+const NON_DELETABLE_REASONS = new Set<BrokenReason>(["login_required", "captcha", "spam_flag"]);
 
 export interface UrlHealthOutcome {
   status: "ok" | "broken";
@@ -51,14 +51,12 @@ function broken(error: BrokenReason): UrlHealthOutcome {
   return { status: "broken", error, deletable: isDeletableFailure(error) };
 }
 
-function isWorkdayUrlLoginFalsePositive(pageUrl: string, bodyText: string): boolean {
-  try {
-    if (!new URL(pageUrl).hostname.toLowerCase().includes("myworkdayjobs.com")) {
-      return false;
-    }
-  } catch {
-    return false;
-  }
+/**
+ * Public ATS boards (Workday, Workable, …) often put "Sign in" / "Log in" in
+ * nav chrome even when the full posting is visible. Treat that as a false
+ * positive when the body already looks like a job description.
+ */
+function pageHasPublicJobContent(bodyText: string): boolean {
   return (
     bodyText.length >= MIN_BODY_CHARS &&
     /responsibilities|requirements|qualifications|about the role|what you|key responsibilities/i.test(
@@ -82,7 +80,7 @@ export function classifyBodyFailure(
   }
   if (CAPTCHA_PATTERNS.some((re) => re.test(title))) return "captcha";
   if (
-    !isWorkdayUrlLoginFalsePositive(pageUrl, bodyText) &&
+    !pageHasPublicJobContent(bodyText) &&
     LOGIN_PATTERNS.some((re) => re.test(bodyText.slice(0, 1500)))
   ) {
     return "login_required";
@@ -153,18 +151,26 @@ function extractHtmlTitle(html: string): string {
 }
 
 /**
- * Ashby/Greenhouse-style shells return HTTP 200 with almost no body text until JS runs.
- * Treat as reachable when status is OK and a real title (or pre-JS label) is present.
+ * Many ATS boards return HTTP 200 with a JS shell and almost no extractable text
+ * until the browser runs (Ashby, Greenhouse, Workable, Workday, …). That is not a
+ * dead posting. Prefer "reachable" over `empty_content` whenever the response looks
+ * like an app shell rather than a confirmed missing page.
  */
 export function isHttpSpaShellReachable(status: number, html: string, bodyText: string): boolean {
   if (status < 200 || status >= 400) return false;
+  const title = extractHtmlTitle(html);
+  const titleOk = title.length >= 8 && !/^error|not found|404/i.test(title);
   const spaHint =
-    /enable javascript|you need to enable javascript|id=["']root["']|__NEXT_DATA__|ashby/i.test(
+    /enable javascript|you need to enable javascript|id=["']root["']|id=["']app["']|__NEXT_DATA__/i.test(
       html
     );
+  // Opaque shell: large HTML, thin text, real title — common bot/no-JS ATS response.
+  const opaqueShell = html.length >= 5_000 && bodyText.trim().length < MIN_BODY_CHARS && titleOk;
+  if (opaqueShell) return true;
   if (!spaHint) return false;
-  const title = extractHtmlTitle(html);
-  if (title.length >= 8 && !/^error|not found|404/i.test(title)) return true;
+  if (titleOk) return true;
+  // SPA chrome with empty pre-JS body/title (e.g. Workday) — inconclusive, not deletable.
+  if (html.length >= 5_000) return true;
   const withoutJsNudge = bodyText.replace(/you need to enable javascript.*/i, "").trim();
   return withoutJsNudge.length >= 20;
 }

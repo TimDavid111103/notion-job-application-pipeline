@@ -51,10 +51,6 @@ before opening a browser tab. URL parsing handles both locale-prefixed paths
 (`…/en-US/RTS/job/ML-Engineer_R1191`) and bare site paths
 (`…/AccentureCareers/job/London/…`). Implementation: `scripts/lib/scrape/workday.ts`.
 
-Workday nav includes a "Sign In" link that previously false-positived as
-`login_required`. The scraper skips that check when the page body already contains
-job content (Responsibilities, Requirements, etc.).
-
 ## Generic fallback
 
 Tried in order when host shortcuts miss:
@@ -86,7 +82,7 @@ hosts:
 | `404` | HTTP 404/410 | Yes |
 | `dns_failure` | `ERR_NAME_NOT_RESOLVED`, connection refused | Yes |
 | `posting_closed` | Body matches closed/filled patterns | Yes |
-| `login_required` | Sign-in / log-in prompts in first 1500 chars (Workday nav excluded when job body present) | **No** |
+| `login_required` | Sign-in / log-in prompts in first 1500 chars without public job content — see [url-health-policy.md](../../../../docs/shared/url-health-policy.md) | **No** |
 | `captcha` | captcha / verify-human text | **No** |
 | `empty_content` | Extracted text < 200 chars | Yes |
 | `non_english` | Description fails `isEnglishDescription()` | Yes |

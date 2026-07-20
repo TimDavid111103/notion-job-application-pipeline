@@ -3,18 +3,27 @@
  */
 import { readFile, writeFile, unlink, access } from "node:fs/promises";
 import { constants as fsConstants } from "node:fs";
+import path from "node:path";
 import {
   aggregatorForUrl,
   closeBrowser,
   createContext,
+  disconnectCdpBrowser,
+  getCdpPort,
   launchBrowser,
+  reconnectCdpBrowser,
   type Aggregator,
 } from "../lib/browser/index.js";
 import type { Browser, Page } from "playwright";
 import {
+  detectSubmitOutcome,
   fillApplicationForm,
   getFillLimit,
+  getSubmitButtonScreenPoint,
   printHandoffSummary,
+  shouldAutoSubmit,
+  submitApplicationForm,
+  submitApplicationViaOsClick,
 } from "../lib/fill/application-fill.js";
 import { loadFillReferences } from "../lib/fill/fill-references.js";
 import {
@@ -115,6 +124,88 @@ async function writeResults(results: FillResultItem[]): Promise<void> {
   );
 }
 
+async function probeAutoSubmit(
+  browser: Browser,
+  page: Page,
+  pageCache: Map<Aggregator | "public", Page>,
+  itemJobUrl: string
+): Promise<{
+  browser: Browser;
+  submit: { clicked: boolean; spam: boolean; success: boolean; message: string | null };
+}> {
+  console.log("AUTO_SUBMIT=1 — disconnect CDP, Accessibility click Submit, reconnect...");
+  let submit = {
+    clicked: false,
+    spam: false,
+    success: false,
+    message: null as string | null,
+  };
+
+  if (getCdpPort()) {
+    const screenPoint = await getSubmitButtonScreenPoint(page);
+    await disconnectCdpBrowser(browser);
+    const os = await submitApplicationViaOsClick(screenPoint ?? undefined);
+    console.log(`OS submit: ${os.message}`);
+    await new Promise((r) => setTimeout(r, 2500));
+    try {
+      const reBrowser = await reconnectCdpBrowser();
+      const ctx = reBrowser.contexts()[0];
+      const pages = ctx?.pages() ?? [];
+      let rePage = pages[pages.length - 1] ?? (await ctx!.newPage());
+      let detected = await detectSubmitOutcome(rePage);
+      submit = { clicked: os.clicked, ...detected, message: detected.message ?? os.message };
+
+      // Accessibility often denied (-25211), or XY click misses / validation blocks submit.
+      // Fall back to Playwright click when we still see the form (no success/spam).
+      if (!submit.success && !submit.spam) {
+        const stillOnForm = await rePage
+          .getByRole("button", { name: /submit application/i })
+          .first()
+          .isVisible()
+          .catch(() => false);
+        if (stillOnForm) {
+          console.log("Submit not confirmed — Playwright click fallback...");
+          const pw = await submitApplicationForm(rePage);
+          submit = {
+            ...pw,
+            clicked: os.clicked || pw.clicked,
+            message: `pw_fallback:${pw.message ?? "ok"}; prior:${os.message}`,
+          };
+        }
+      }
+
+      try {
+        const shot = path.join(path.dirname(FILL_RESULTS_FILE), "submit-screenshot.png");
+        await rePage.screenshot({ path: shot, fullPage: true });
+        console.log(`Wrote submit screenshot → ${shot}`);
+      } catch {
+        /* optional */
+      }
+      pageCache.clear();
+      pageCache.set(aggregatorForUrl(itemJobUrl) ?? "public", rePage);
+      return { browser: reBrowser, submit };
+    } catch (err) {
+      submit = {
+        clicked: os.clicked,
+        spam: false,
+        success: false,
+        message: `reconnect_failed:${err instanceof Error ? err.message : String(err)}; ${os.message}`,
+      };
+      return { browser, submit };
+    }
+  }
+
+  submit = await submitApplicationForm(page);
+  try {
+    const shot = path.join(path.dirname(FILL_RESULTS_FILE), "submit-screenshot.png");
+    await page.screenshot({ path: shot, fullPage: true });
+    console.log(`Wrote submit screenshot → ${shot}`);
+  } catch {
+    /* optional */
+  }
+  return { browser, submit };
+}
+
 async function main(): Promise<void> {
   const sessionRaw = JSON.parse(await readFile(FILL_SESSION_FILE, "utf8")) as unknown;
   const session = parseFillSessionFile(sessionRaw);
@@ -133,7 +224,7 @@ async function main(): Promise<void> {
 
   const keepOpen = shouldKeepBrowserOpen();
   const refs = loadFillReferences();
-  const browser = await launchBrowser({
+  let browser = await launchBrowser({
     headed: true,
     ignoreDefaultSignals: keepOpen,
   });
@@ -154,12 +245,45 @@ async function main(): Promise<void> {
     for (let i = 0; i < toProcess.length; i++) {
       const item = toProcess[i]!;
       console.log(`\n[${i + 1}/${toProcess.length}] Filling: ${item.company}: ${item.role}`);
-      const page = await getPage(aggregatorForUrl(item.jobUrl));
-      const result = await fillApplicationForm(page, item, refs);
+      let page = await getPage(aggregatorForUrl(item.jobUrl));
+      let result = await fillApplicationForm(page, item, refs);
+
+      if (shouldAutoSubmit() && (result.status === "filled" || result.status === "partial")) {
+        const probed = await probeAutoSubmit(browser, page, pageCache, item.jobUrl);
+        browser = probed.browser;
+        page = pageCache.get(aggregatorForUrl(item.jobUrl) ?? "public") ?? page;
+        const submit = probed.submit;
+        console.log(
+          `Submit: clicked=${submit.clicked} spam=${submit.spam} success=${submit.success} msg=${submit.message ?? "(none)"}`
+        );
+        if (submit.spam) {
+          result = {
+            ...result,
+            status: "blocked",
+            error: "spam_flag",
+            deletable: false,
+            filledFields: [...result.filledFields, "auto-submit:spam_flag"],
+          };
+        } else if (submit.success) {
+          result = {
+            ...result,
+            filledFields: [...result.filledFields, "auto-submit:success"],
+          };
+        } else if (submit.clicked) {
+          result = {
+            ...result,
+            filledFields: [...result.filledFields, "auto-submit:clicked"],
+          };
+        } else {
+          result = {
+            ...result,
+            filledFields: [...result.filledFields, `auto-submit:${submit.message ?? "failed"}`],
+          };
+        }
+      }
+
       results.push(result);
       printHandoffSummary(result);
-
-      // Persist after each job so the agent can read results while the browser stays open.
       await writeResults(results);
 
       if (shouldAutoPause()) {
@@ -183,7 +307,6 @@ async function main(): Promise<void> {
     }
   } finally {
     if (keepOpen && browser.isConnected()) {
-      // Still connected after final handoff wait — leave Chrome up; do not close.
       console.log("Browser left open — close the window when you are fully done.");
     } else if (browser.isConnected()) {
       await closeBrowser(browser);

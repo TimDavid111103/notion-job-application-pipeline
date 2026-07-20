@@ -37,7 +37,15 @@ export function lookupAiAnswer(label: string, file: AiAnswersFile | null): strin
   if (file.answers[label]) return file.answers[label]!;
   for (const [k, v] of Object.entries(file.answers)) {
     if (normalizeLabel(k) === norm) return v;
-    if (norm.includes(normalizeLabel(k)) || normalizeLabel(k).includes(norm)) return v;
+    const kn = normalizeLabel(k);
+    // Require substantial overlap — avoid short keys hijacking long questions.
+    if (kn.length >= 24 && (norm.includes(kn) || kn.includes(norm))) return v;
+    // Token overlap for long screening questions
+    if (kn.length >= 40 && norm.length >= 40) {
+      const kw = new Set(kn.split(/\s+/).filter((w) => w.length > 3));
+      const hits = norm.split(/\s+/).filter((w) => kw.has(w)).length;
+      if (hits >= 5) return v;
+    }
   }
   return null;
 }
