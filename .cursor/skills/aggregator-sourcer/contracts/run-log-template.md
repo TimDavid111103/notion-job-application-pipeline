@@ -37,7 +37,7 @@ help improve the skill.
 | Outcome | success / partial / failed |
 | RUN_ID | from `source-all.ts` output, if sourcing ran |
 | Commands run | list npm/tsx commands executed |
-| Env overrides | e.g. `HEADED=1`, `JOB_LIMIT=5`, `PARALLEL=1` |
+| Env overrides | e.g. `HEADED=0`, `JOB_LIMIT=5`, `PARALLEL=1` |
 
 ## Results
 

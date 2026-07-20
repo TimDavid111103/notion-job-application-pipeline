@@ -3,7 +3,8 @@
 Single source of truth for auth, URLs, and selectors. Commands: [pipeline-commands.md](../protocol/pipeline-commands.md).
 Job limits: [environment-variables.md](../protocol/environment-variables.md). Sourcing behavior: [aggregator-sourcing-spec.md](aggregator-sourcing-spec.md).
 
-Sessions: `.auth/{wobo,handshake,jackjill}.json`. Default **headless** (`HEADED=1` to debug).
+Sessions: `.auth/{wobo,handshake,jackjill}.json`. Headed vs headless:
+[environment-variables.md](../protocol/environment-variables.md).
 
 ## Auth (fallback only)
 

@@ -2,7 +2,14 @@
  * Wobo sourcing entry point — dashboard swipe cards until caught up or JOB_LIMIT
  * new jobs. Skips postings already in data/sourced-jobs.md (still advances the feed).
  */
-import { launchBrowser, createContext, saveAuthState, closeBrowser } from "../lib/browser/index.js";
+import {
+  launchBrowser,
+  createContext,
+  saveAuthState,
+  closeBrowser,
+  isSourceHeaded,
+  openPage,
+} from "../lib/browser/index.js";
 import {
   advanceCard,
   dismissAutopilot,
@@ -25,10 +32,10 @@ import type { SourcedJob } from "../lib/job/index.js";
 
 async function main(): Promise<void> {
   const limit = getJobLimit("wobo");
-  const headed = process.env.HEADED === "1";
+  const headed = isSourceHeaded();
   const scratchKeys = await loadScratchKeys();
   const browser = await launchBrowser({ headed, aggregator: "wobo" });
-  const page = await (await createContext(browser, "wobo", headed)).newPage();
+  const page = await openPage(await createContext(browser, "wobo", headed));
   const jobs: SourcedJob[] = [];
   let scratchSkipped = 0;
 

@@ -9,10 +9,12 @@ disable-model-invocation: true
 Orchestration runbook — follow steps 0–11 in order. Full reference catalog:
 [indexes/reference-index.md](indexes/reference-index.md)
 
-Playwright npm scripts at repo root (not browser MCP tabs). Headless by default; re-auth only
+Playwright npm scripts at repo root (not browser MCP tabs). Sourcing is **headed by
+default** ([environment-variables.md](protocol/environment-variables.md)); re-auth only
 when step 0 fails.
 
-**Agent runtime (read first):** [protocol/agent-runtime.md](protocol/agent-runtime.md) — browser commands, including headless sourcing, require `required_permissions: ["all"]`.
+**Agent runtime (read first):** [protocol/agent-runtime.md](protocol/agent-runtime.md) —
+browser commands require `required_permissions: ["all"]`.
 
 ## Hard rule — `data/` temp cleanup
 

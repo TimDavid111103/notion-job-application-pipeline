@@ -2,7 +2,14 @@
  * Handshake sourcing entry point — applies filters, searches each term in
  * SEARCH_TERMS, scrapes results list up to JOB_LIMIT total.
  */
-import { launchBrowser, createContext, saveAuthState, closeBrowser } from "../lib/browser/index.js";
+import {
+  launchBrowser,
+  createContext,
+  saveAuthState,
+  closeBrowser,
+  isSourceHeaded,
+  openPage,
+} from "../lib/browser/index.js";
 import {
   applyFilters,
   ensureLoggedIn,
@@ -15,10 +22,10 @@ import type { SourcedJob } from "../lib/job/index.js";
 
 async function main(): Promise<void> {
   const limit = getJobLimit("handshake");
-  const headed = process.env.HEADED === "1";
+  const headed = isSourceHeaded();
   const scratchKeys = await loadScratchKeys();
   const browser = await launchBrowser({ headed, aggregator: "handshake" });
-  const page = await (await createContext(browser, "handshake", headed)).newPage();
+  const page = await openPage(await createContext(browser, "handshake", headed));
   const allJobs: SourcedJob[] = [];
 
   try {

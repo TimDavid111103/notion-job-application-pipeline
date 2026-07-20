@@ -2,7 +2,7 @@
  * Headed one-time login for Jack & Jill — saves session to .auth/jackjill.json.
  * May require email verification code on first login.
  */
-import { launchBrowser, createContext, waitForManualLogin } from "../lib/browser/index.js";
+import { launchBrowser, createContext, waitForManualLogin, closeBrowser } from "../lib/browser/index.js";
 
 const EMAIL = "tim.david1111@gmail.com";
 const JACK_INBOX = "https://app.jackandjill.ai/jack/dashboard/inbox";
@@ -15,7 +15,7 @@ async function main(): Promise<void> {
   console.log("Complete password or verification code in the browser.");
   console.log(`Target after login: ${JACK_INBOX}\n`);
 
-  const browser = await launchBrowser({ headed: true, aggregator: "jackjill" });
+  const browser = await launchBrowser({ headed: true, aggregator: "jackjill", stealFocus: true });
   const context = await createContext(browser, "jackjill", true);
   const page = await context.newPage();
 
@@ -36,7 +36,7 @@ async function main(): Promise<void> {
   console.log("\nWaiting for inbox...");
   await waitForManualLogin(page, "jackjill", JACK_LOGGED_IN);
   console.log("Login saved to .auth/jackjill.json");
-  await browser.close();
+  await closeBrowser(browser);
 }
 
 main().catch((err) => {

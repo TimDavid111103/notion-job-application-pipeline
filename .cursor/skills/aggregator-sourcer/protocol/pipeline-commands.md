@@ -39,4 +39,4 @@ npm run run-log:basename           # step 11 — run log filename
 and `.gitkeep`. Run it at step 5 (before logging) and again at step 9 (after MCP insert).
 Do not skip either pass.
 
-Example override: `HEADED=1 WOBO_JOB_LIMIT=5 npm run source:wobo`
+Example override: `HEADED=0 WOBO_JOB_LIMIT=5 npm run source:wobo`

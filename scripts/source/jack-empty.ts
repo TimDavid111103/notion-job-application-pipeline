@@ -1,4 +1,11 @@
-import { launchBrowser, createContext, saveAuthState, closeBrowser } from "../lib/browser/index.js";
+import {
+  launchBrowser,
+  createContext,
+  saveAuthState,
+  closeBrowser,
+  isSourceHeaded,
+  openPage,
+} from "../lib/browser/index.js";
 import { ensureLoggedIn, reviewInbox, emptySavedColumn } from "../lib/aggregators/jackjill.js";
 import { appendJobs, loadScratchKeys } from "../lib/job/scratch.js";
 import type { SourcedJob } from "../lib/job/index.js";
@@ -11,12 +18,12 @@ import type { SourcedJob } from "../lib/job/index.js";
  * Set SKIP_INBOX=1 to only empty the Saved column.
  */
 async function main(): Promise<void> {
-  const headed = process.env.HEADED === "1";
+  const headed = isSourceHeaded();
   const max = process.env.MAX ? parseInt(process.env.MAX, 10) : Infinity;
   const skipInbox = process.env.SKIP_INBOX === "1";
   const scratchKeys = await loadScratchKeys();
   const browser = await launchBrowser({ headed, aggregator: "jackjill" });
-  const page = await (await createContext(browser, "jackjill", headed)).newPage();
+  const page = await openPage(await createContext(browser, "jackjill", headed));
   const kept: SourcedJob[] = [];
 
   try {

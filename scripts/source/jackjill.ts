@@ -3,7 +3,14 @@
  * review every item (Track keepers / Not for me rejections). Does not empty Saved;
  * run jack-empty.ts separately for the kanban column.
  */
-import { launchBrowser, createContext, saveAuthState, closeBrowser } from "../lib/browser/index.js";
+import {
+  launchBrowser,
+  createContext,
+  saveAuthState,
+  closeBrowser,
+  isSourceHeaded,
+  openPage,
+} from "../lib/browser/index.js";
 import { ensureLoggedIn, fillInbox, reviewInbox } from "../lib/aggregators/jackjill.js";
 import { appendJobs, dedupeWithinSource, loadScratchKeys } from "../lib/job/scratch.js";
 import { getJobLimit } from "../lib/job/limits.js";
@@ -17,13 +24,13 @@ function jackTimeoutMs(): number {
 
 async function main(): Promise<void> {
   const limit = getJobLimit("jackjill");
-  const headed = process.env.HEADED === "1";
+  const headed = isSourceHeaded();
   const scratchKeys = await loadScratchKeys();
   const timeoutMs = jackTimeoutMs();
   // Reserve ~2 min for reviewInbox so fillInbox does not consume the whole budget.
   const fillBudgetMs = Math.max(timeoutMs - 120_000, 180_000);
   const browser = await launchBrowser({ headed, aggregator: "jackjill" });
-  const page = await (await createContext(browser, "jackjill", headed)).newPage();
+  const page = await openPage(await createContext(browser, "jackjill", headed));
   let jobs: SourcedJob[] = [];
 
   try {

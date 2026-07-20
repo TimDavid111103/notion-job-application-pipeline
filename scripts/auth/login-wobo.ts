@@ -2,7 +2,7 @@
  * Headed one-time login for Wobo — saves session to .auth/wobo.json.
  * Re-run only when test:access fails or sourcing hits an expired session.
  */
-import { launchBrowser, createContext, waitForManualLogin } from "../lib/browser/index.js";
+import { launchBrowser, createContext, waitForManualLogin, closeBrowser } from "../lib/browser/index.js";
 
 const EMAIL = "30.recess_archaea@icloud.com";
 
@@ -14,7 +14,7 @@ async function main(): Promise<void> {
   console.log(`Email: ${EMAIL}`);
   console.log("Password: paste from chat when prompted in browser.\n");
 
-  const browser = await launchBrowser({ headed: true, aggregator: "wobo" });
+  const browser = await launchBrowser({ headed: true, aggregator: "wobo", stealFocus: true });
   const context = await createContext(browser, "wobo", true);
   const page = await context.newPage();
 
@@ -36,7 +36,7 @@ async function main(): Promise<void> {
   console.log("\nWaiting for you to reach the dashboard (https://www.wobo.ai/dashboard)...");
   await waitForManualLogin(page, "wobo", WOBO_LOGGED_IN);
   console.log("Login saved. You can close the window or it will close automatically.");
-  await browser.close();
+  await closeBrowser(browser);
 }
 
 main().catch((err) => {

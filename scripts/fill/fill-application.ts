@@ -227,6 +227,7 @@ async function main(): Promise<void> {
   let browser = await launchBrowser({
     headed: true,
     ignoreDefaultSignals: keepOpen,
+    stealFocus: true,
   });
   const results: FillResultItem[] = [];
   const pageCache = new Map<Aggregator | "public", Page>();

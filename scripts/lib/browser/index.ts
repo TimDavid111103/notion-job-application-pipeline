@@ -1,7 +1,8 @@
 /**
  * Shared Playwright browser lifecycle — launch, auth state, graceful shutdown.
  *
- * Sessions persist in `.auth/{aggregator}.json` and reload on each headless run.
+ * Sessions persist in `.auth/{aggregator}.json` and reload on each run.
+ * Source lane defaults headed (`isSourceHeaded`); scrape/fill pass explicit `headed`.
  *
  * Headed fill prefers CDP-attached system Chrome: Playwright does not spawn the
  * browser with automation switches. Submit probes disconnect CDP and click via
@@ -10,12 +11,16 @@
 import "./playwright-env.js";
 import { existsSync } from "node:fs";
 import { mkdir, readFile } from "node:fs/promises";
-import { spawn, type ChildProcess } from "node:child_process";
+import { spawn, execFile, type ChildProcess } from "node:child_process";
+import { promisify } from "node:util";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
 import { assertBrowserLaunchAllowed, ensurePlaywrightEnv } from "./playwright-env.js";
 import { applyAntiBotInitScripts } from "./stealth.js";
+import { FocusGuard, withPreservedFocus } from "./focus.js";
+
+const execFileAsync = promisify(execFile);
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const REPO_ROOT = path.resolve(__dirname, "../../..");
@@ -26,6 +31,14 @@ export type Aggregator = "wobo" | "handshake" | "jackjill";
 
 export function authPath(aggregator: Aggregator): string {
   return path.join(AUTH_DIR, `${aggregator}.json`);
+}
+
+/**
+ * Source-lane headed mode: visible browser unless `HEADED=0`.
+ * Canonical env docs: aggregator-sourcer `protocol/environment-variables.md`.
+ */
+export function isSourceHeaded(): boolean {
+  return process.env.HEADED !== "0";
 }
 
 /**
@@ -52,10 +65,17 @@ export interface LaunchOptions {
    * Defaults on for headed when `BROWSER_CDP` is unset or `1`.
    */
   cdp?: boolean;
+  /**
+   * When false (default), headed Chrome must not yank macOS focus away from the
+   * user's current app (sourcing). Set true for auth/fill where the user must
+   * interact with the browser.
+   */
+  stealFocus?: boolean;
 }
 
 let cdpChromeProc: ChildProcess | null = null;
 let cdpPort: number | null = null;
+let activeFocusGuard: FocusGuard | null = null;
 
 export function getCdpPort(): number | null {
   return cdpPort;
@@ -81,14 +101,15 @@ export async function ensureAuthDir(): Promise<void> {
   await mkdir(AUTH_DIR, { recursive: true });
 }
 
-function launchArgs(headed: boolean): string[] {
+function launchArgs(headed: boolean, stealFocus: boolean): string[] {
   const args = [
     "--disable-blink-features=AutomationControlled",
     "--disable-infobars",
     "--no-default-browser-check",
     "--no-first-run",
   ];
-  if (headed) args.push("--start-maximized");
+  // Maximizing activates the window on macOS — only when focus steal is intended.
+  if (headed && stealFocus) args.push("--start-maximized");
   return args;
 }
 
@@ -128,10 +149,66 @@ async function waitForCdp(port: number, timeoutMs = 20_000): Promise<void> {
   throw new Error(`Chrome CDP not ready on port ${port} within ${timeoutMs}ms`);
 }
 
-async function launchBrowserViaCdp(headed: boolean): Promise<Browser> {
+function chromeAppName(chromePath: string): string {
+  if (/Chromium\.app/i.test(chromePath)) return "Chromium";
+  return "Google Chrome";
+}
+
+/** PIDs for Chrome using our automation profile — never the user's personal Chrome. */
+async function automationChromePids(): Promise<number[]> {
+  const marker = path.join(AUTH_DIR, "chrome-fill-profile");
+  try {
+    const { stdout } = await execFileAsync("pgrep", ["-f", marker], { encoding: "utf8" });
+    return stdout
+      .split(/\s+/)
+      .map((s) => parseInt(s, 10))
+      .filter((n) => Number.isFinite(n) && n > 0);
+  } catch {
+    return [];
+  }
+}
+
+/** Kill CDP/automation Chrome left behind after disconnect or failed launch. */
+async function killAutomationChrome(): Promise<void> {
+  if (cdpChromeProc?.pid) {
+    try {
+      process.kill(-cdpChromeProc.pid, "SIGTERM");
+    } catch {
+      try {
+        process.kill(cdpChromeProc.pid, "SIGTERM");
+      } catch {
+        /* already gone */
+      }
+    }
+  }
+  const pids = await automationChromePids();
+  for (const pid of pids) {
+    try {
+      process.kill(pid, "SIGTERM");
+    } catch {
+      /* already gone */
+    }
+  }
+  if (pids.length > 0) {
+    await new Promise((r) => setTimeout(r, 400));
+    for (const pid of await automationChromePids()) {
+      try {
+        process.kill(pid, "SIGKILL");
+      } catch {
+        /* already gone */
+      }
+    }
+  }
+  cdpChromeProc = null;
+  cdpPort = null;
+}
+
+async function launchBrowserViaCdp(headed: boolean, stealFocus: boolean): Promise<Browser> {
   const chromePath = chromeExecutablePath();
   if (!chromePath) throw new Error("Google Chrome not found for CDP launch");
   await mkdir(CHROME_FILL_PROFILE_DIR, { recursive: true });
+  // Clear orphans from prior runs / timed-out CDP attaches before starting another.
+  await killAutomationChrome();
   const port = 9222 + Math.floor(Math.random() * 800);
   cdpPort = port;
   const profileDir = path.join(CHROME_FILL_PROFILE_DIR, "default");
@@ -143,16 +220,42 @@ async function launchBrowserViaCdp(headed: boolean): Promise<Browser> {
     "--disable-infobars",
     "--no-first-run",
     "--no-default-browser-check",
-    ...(headed ? ["--start-maximized"] : ["--headless=new"]),
+    ...(headed ? (stealFocus ? ["--start-maximized"] : []) : ["--headless=new"]),
     "about:blank",
   ];
   console.log(`Spawning Chrome for CDP attach (port ${port})...`);
-  cdpChromeProc = spawn(chromePath, args, { stdio: "ignore", detached: true });
-  cdpChromeProc.unref();
-  await waitForCdp(port);
-  const browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`);
-  console.log("Browser attached via CDP (system Chrome)");
-  return browser;
+
+  const spawnChrome = (): void => {
+    // macOS `open -g` starts without activating — avoids yanking focus on launch.
+    if (process.platform === "darwin" && headed && !stealFocus) {
+      cdpChromeProc = spawn(
+        "open",
+        ["-g", "-n", "-a", chromeAppName(chromePath), "--args", ...args],
+        { stdio: "ignore", detached: true }
+      );
+    } else {
+      cdpChromeProc = spawn(chromePath, args, { stdio: "ignore", detached: true });
+    }
+    cdpChromeProc.unref();
+  };
+
+  try {
+    if (stealFocus) {
+      spawnChrome();
+      await waitForCdp(port);
+    } else {
+      await withPreservedFocus(async () => {
+        spawnChrome();
+        await waitForCdp(port);
+      });
+    }
+    const browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`);
+    console.log("Browser attached via CDP (system Chrome)");
+    return browser;
+  } catch (err) {
+    await killAutomationChrome();
+    throw err;
+  }
 }
 
 async function applyStealthInitScripts(context: BrowserContext): Promise<void> {
@@ -172,22 +275,39 @@ function formatLaunchError(err: unknown): string {
 
 /**
  * Launch order: CDP system Chrome (headed default) → channel=chrome → bundled Chromium.
+ * Headed sourcing defaults to `stealFocus: false` so macOS does not yank you to Chrome.
  */
 export async function launchBrowser(options: LaunchOptions = {}): Promise<Browser> {
   const env = ensurePlaywrightEnv();
   assertBrowserLaunchAllowed();
   const headed = options.headed ?? process.env.HEADED === "1";
-  const args = launchArgs(headed);
+  const stealFocus = options.stealFocus ?? false;
+  const args = launchArgs(headed, stealFocus);
   console.log(headed ? "Launching headed browser..." : "Launching headless browser...");
+  if (headed && !stealFocus && process.platform === "darwin") {
+    console.log("Focus guard on — Chrome will stay in the background.");
+  }
   if (env.hostPlatform || env.browsersPath) {
     console.log(
       `Playwright env: host=${env.hostPlatform ?? "(default)"} browsers=${env.browsersPath ?? "(default)"}`
     );
   }
 
+  activeFocusGuard?.stop();
+  activeFocusGuard = null;
+  if (headed && !stealFocus) {
+    activeFocusGuard = new FocusGuard();
+    await activeFocusGuard.start();
+  }
+
+  const afterLaunch = async (browser: Browser): Promise<Browser> => {
+    if (activeFocusGuard) await activeFocusGuard.restore();
+    return browser;
+  };
+
   if (shouldUseCdp(options, headed)) {
     try {
-      return await launchBrowserViaCdp(headed);
+      return await afterLaunch(await launchBrowserViaCdp(headed, stealFocus));
     } catch (err) {
       console.warn(`CDP Chrome launch failed, falling back: ${formatLaunchError(err)}`);
     }
@@ -222,13 +342,18 @@ export async function launchBrowser(options: LaunchOptions = {}): Promise<Browse
   const errors: string[] = [];
   for (const attempt of attempts) {
     try {
-      const browser = await chromium.launch(attempt.opts);
+      const browser = stealFocus
+        ? await chromium.launch(attempt.opts)
+        : await withPreservedFocus(() => chromium.launch(attempt.opts));
       console.log(`Browser launched via ${attempt.label}`);
-      return browser;
+      return await afterLaunch(browser);
     } catch (err) {
       errors.push(`${attempt.label}: ${formatLaunchError(err)}`);
     }
   }
+
+  activeFocusGuard?.stop();
+  activeFocusGuard = null;
 
   const exe = (() => {
     try {
@@ -248,6 +373,18 @@ export async function launchBrowser(options: LaunchOptions = {}): Promise<Browse
       '  Agent: re-run with required_permissions: ["all"].',
     ].join("\n")
   );
+}
+
+/**
+ * Open a page; when the focus guard is active, restore the user's frontmost app
+ * afterward so new tabs do not yank focus.
+ */
+export async function openPage(context: BrowserContext): Promise<Page> {
+  const page = activeFocusGuard
+    ? await withPreservedFocus(() => context.newPage())
+    : await context.newPage();
+  if (activeFocusGuard) await activeFocusGuard.restore();
+  return page;
 }
 
 export async function createContext(
@@ -277,6 +414,7 @@ export async function createContext(
         /* optional auth */
       }
     }
+    if (activeFocusGuard) await activeFocusGuard.restore();
     return existing;
   }
 
@@ -289,15 +427,29 @@ export async function createContext(
     permissions: ["clipboard-read", "clipboard-write"],
   });
   await applyStealthInitScripts(context);
+  if (activeFocusGuard) await activeFocusGuard.restore();
   return context;
 }
 
 export async function closeBrowser(browser: Browser, ms = 5000): Promise<void> {
+  activeFocusGuard?.stop();
+  activeFocusGuard = null;
+
+  // Close every tab/context first so nothing is left on screen after disconnect.
+  for (const context of browser.contexts()) {
+    for (const page of context.pages()) {
+      await page.close().catch(() => {});
+    }
+    await context.close().catch(() => {});
+  }
+
   await Promise.race([
     browser.close().catch(() => {}),
     new Promise((resolve) => setTimeout(resolve, ms)),
   ]);
-  cdpChromeProc = null;
+
+  // connectOverCDP: browser.close() only disconnects — kill the Chrome process too.
+  await killAutomationChrome();
 }
 
 export async function saveAuthState(page: Page, aggregator: Aggregator): Promise<void> {

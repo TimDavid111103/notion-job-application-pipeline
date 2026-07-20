@@ -2,7 +2,7 @@
  * Headed one-time login for Handshake — saves session to .auth/handshake.json.
  * Cloudflare challenge may appear on first login; complete it in the browser.
  */
-import { launchBrowser, createContext, waitForManualLogin } from "../lib/browser/index.js";
+import { launchBrowser, createContext, waitForManualLogin, closeBrowser } from "../lib/browser/index.js";
 
 const HANDSHAKE_JOB_SEARCH = "https://app.joinhandshake.com/job-search";
 const HANDSHAKE_LOGGED_IN = /joinhandshake\.com\/(stu\/|edu\/|job-search|jobs\/)/i;
@@ -14,7 +14,7 @@ async function main(): Promise<void> {
   console.log("Log in with your school/Handshake credentials.");
   console.log(`Target after login: ${HANDSHAKE_JOB_SEARCH}\n`);
 
-  const browser = await launchBrowser({ headed: true, aggregator: "handshake" });
+  const browser = await launchBrowser({ headed: true, aggregator: "handshake", stealFocus: true });
   const context = await createContext(browser, "handshake", true);
   const page = await context.newPage();
 
@@ -39,7 +39,7 @@ async function main(): Promise<void> {
 
   await waitForManualLogin(page, "handshake", HANDSHAKE_LOGGED_IN);
   console.log("Login saved to .auth/handshake.json");
-  await browser.close();
+  await closeBrowser(browser);
 }
 
 main().catch((err) => {
