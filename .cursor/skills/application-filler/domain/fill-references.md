@@ -3,7 +3,7 @@
 Assets and lookup rules for form filling.  
 Parsers: `scripts/lib/fill/fill-references.ts`, `scripts/lib/fill/ai-fill.ts`.
 
-**Principle:** each question class has one owning path — **auto-fill** from assets, or **AI-fill** from answers/projects + the Notion job description. Do not paste raw exemplars into open-ended fields without JD-aware generation. **Open-ended fields with no `answers.md` retrieval hit stay blank** (handoff) — do not invent answers in `ai-answers.json` or via LLM.
+**Principle:** each question class has one owning path. For open-ended screening text, **`assets/answers.md` is the only source of truth.** Rank a seed for the form label (after aliases); optional live LLM may rewrite that seed for the JD. No seed hit → leave blank.
 
 ## Auto-fill vs AI-fill
 
@@ -13,11 +13,9 @@ Parsers: `scripts/lib/fill/fill-references.ts`, `scripts/lib/fill/ai-fill.ts`.
 | Years band, proficiency (max for primary tech), tech/skill selects & radios | **Auto-fill** | `skills-profile.md` |
 | Resume upload | **Auto-fill** | `documents/resume.pdf` |
 | Cover letter textarea | **Template + AI tailoring** | `cover-letter.md` body; last paragraph placeholders from JD |
-| Cover letter file upload | **Auto-fill** | `documents/cover-letter-template.pdf` |
-| Experience summary, screening essays, “describe / tell us / how have you…” | **AI-fill** | `answers.md` + `projects.md` **seed** + Notion JD → `data/fill/ai-answers.json` or live LLM |
-| Additional Information / anything else | **AI-fill alias** | Same answer as **“Please tell us about your relevant experience.”** |
-
-AI-fill only when `answers.md` ranks a seed for the (possibly aliased) question. Prefer writing `data/fill/ai-answers.json` in the agent run (step 9) from the page JD; optional `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` for live generation. Omit keys for form questions with no seed basis.
+| Cover letter file upload | **Generated tailored PDF** | Fill placeholders → write `data/fill/cover-letters/{Name}-{Company}-cover-letter.pdf` → upload (never `cover-letter-template.pdf`) |
+| Experience summary, screening essays, “describe / tell us / how have you…” | **AI-fill** | Rank `answers.md` seeds → optional LLM tailor → fill |
+| Additional Information / anything else | **AI-fill alias** | Same answer as **“Please tell us about your relevant experience.”** in `answers.md` |
 
 ## Asset ownership
 
@@ -25,43 +23,43 @@ AI-fill only when `answers.md` ranks a seed for the (possibly aliased) question.
 |------|------|
 | `assets/personal-information.md` | Identity, contact, auth, EEO, logistics, salary numbers, school dates |
 | `assets/skills-profile.md` | Years band, proficiency default, skills, tech stacks, outside-scope |
-| `assets/answers.md` | Screening Q&A seeds by theme (**AI-fill only** — never paste raw except Additional Information → relevant-experience default) |
-| `assets/projects.md` | Portfolio write-ups (**seed for AI-fill**) |
-| `assets/cover-letter.md` | Cover letter text template (PDF twin: `documents/cover-letter-template.pdf`) |
+| `assets/answers.md` | **Sole SoT** for screening Q&A seeds by theme |
+| `assets/projects.md` | Portfolio write-ups (extra context for LLM tailoring of seeds) |
+| `assets/cover-letter.md` | Cover letter text template (static PDF twin for drafting only: `documents/cover-letter-template.pdf`) |
 | `assets/documents/resume.pdf` | Resume file upload (required) |
 
 Live PII copies are gitignored; schema template: `assets/personal-information.template.md`.
 
-## `answers.md` retrieval
+## `answers.md` retrieval (source of truth)
 
-Themes in `answers.md` are **retrieval keys**, not a fixed prompt order. For each form label the engine ranks seeds by question + theme overlap (`rankAnswerExemplars`), prefers distinct themes, and feeds the closest matches into AI-fill.
+Themes in `answers.md` are **retrieval keys**. For each form label the engine:
 
-**No hit → leave blank.** Do not write `ai-answers.json` entries or call an LLM for questions with no ranked seed (e.g. “most interesting paper/blog this month”).
-
-**Additional Information** (and close aliases) always resolve to the **relevant experience** Q&A — look up / tailor that seed, not a separate catch-all paragraph.
-
-When writing `data/fill/ai-answers.json` by hand, map each open-ended form field to the closest theme in `answers.md`, adapt the seed to `{company}` / `{role}` / the Notion JD, and write the tailored text under that field’s label — do not copy a seed verbatim when the form question differs. For Additional Information, key the relevant-experience text under that canonical question (or the form label); never invent a thinner substitute.
+1. Aliases catch-alls (Additional Information → relevant experience)
+2. Ranks seeds with `rankAnswerExemplars` / `seedAnswerForLabel`
+3. **No hit → leave blank** (e.g. “most interesting paper this month”) — do not invent
+4. **Hit → fill** with interpolated seed; optional live LLM (`ANTHROPIC_API_KEY` / `OPENAI_API_KEY`) rewrites that seed using the JD
 
 ## Lookup order
 
 1. Sensitive blocklist → skip (`sensitive_manual_only`)
-2. **Auto-fill** owning asset (personal / skills / resume / cover-letter template)
-3. **AI-fill** for open-ended text — only with `answers.md` basis (ai-answers.json → LLM → Additional Information seed default → else blank + handoff)
+2. **Auto-fill** owning asset (personal / skills / resume / cover letter)
+3. **AI-fill** — `answers.md` seed required; then optional LLM or seed text
 4. Else blank + handoff
 
 ## Policies
 
 - **Salary** — midpoint of asset/posting range when a range exists; otherwise `Salary default`.
 - **Experience / tech** — skills-profile defaults (years band, max proficiency for in-scope tech, primary > secondary, never outside scope).
-- **Sponsorship** — “authorized **without** sponsorship?” → **No** when `Require visa sponsorship` is Yes (even if authorized to work).
+- **Sponsorship** — “authorized **without** sponsorship?” → **No** when `Require visa sponsorship` is Yes (even if authorized to work). Plain “require sponsorship?” → asset value (`Yes`/`No`).
+- **Yes/No clicks** — work authorization, sponsorship, and relocate/Bay Area questions are filled by clicking the matching Yes/No control (not by checking a lone unlabeled box).
 - **Current company** — `N/A` when not employed (`Current company` in personal-information); overwrite ATS resume-parsed employers.
 - **Portfolio URL** — GitHub profile URL (same as `GitHub` / `Portfolio URL` in personal-information), not project essay text.
-- **Cover letter** — full `cover-letter.md` body; only the last paragraph’s placeholders are JD-tailored (`[COMPANY]`, mission/value, two skills).
+- **Cover letter** — fill last-paragraph placeholders from the JD; textarea uses tailored text; file upload uses a generated PDF under `data/fill/cover-letters/` with a `{Name}-{Company}-cover-letter.pdf` filename. **Never** attach `cover-letter-template.pdf` with placeholders left in.
 - **Resume** — canonical path only; fail fast if missing.
 - **Sensitive** — never auto-fill SSN, passport, driver’s license, government ID, bank/card, passwords.
 - **ATS junk** — delete resume-parsed work-experience rows before filling.
 - **Open-ended without answers.md basis** — leave empty for handoff.
-- **Additional Information** — always the relevant-experience answer.
+- **Additional Information** — always the relevant-experience answer from `answers.md`.
 
 ## Interpolation
 

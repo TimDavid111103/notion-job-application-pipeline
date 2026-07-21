@@ -56,13 +56,8 @@ export const COVER_LETTER_TEMPLATE_FILE = path.join(
   "documents",
   "cover-letter-template.pdf"
 );
-export const COVER_LETTER_GENERATED_FILE = path.join(
-  FILL_ASSETS_DIR,
-  "documents",
-  "cover-letter.pdf"
-);
-/** Agent- or LLM-generated answers for AI-fill fields, keyed by normalized label. */
-export const AI_ANSWERS_FILE = path.join(DATA_DIR, "fill", "ai-answers.json");
+/** Tailored cover-letter PDFs written at fill time (temporary — cleaned with data/). */
+export const COVER_LETTERS_DIR = path.join(DATA_DIR, "fill", "cover-letters");
 
 /** @deprecated Use FILL_ASSETS_DIR */
 export const FILL_REFERENCES_DIR = FILL_ASSETS_DIR;

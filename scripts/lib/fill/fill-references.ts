@@ -27,7 +27,6 @@ export type FillSource =
   | "skills-profile.md"
   | "cover-letter.md"
   | "cover-letter-template.pdf"
-  | "ai-answers.json"
   | "llm"
   | null;
 
@@ -509,7 +508,7 @@ function pickProficiencyOption(options: string[], mode: string): string | null {
   return ranked[0] ?? null;
 }
 
-function matchYesNo(label: string, personal: Map<string, string>, skills: SkillsProfile): string | null {
+export function matchYesNo(label: string, personal: Map<string, string>, skills: SkillsProfile): string | null {
   const norm = normalizeLabel(label);
 
   if (/sponsor/i.test(norm) && /without|no longer|not require/i.test(norm)) {
@@ -521,10 +520,10 @@ function matchYesNo(label: string, personal: Map<string, string>, skills: Skills
   if (/sponsor/i.test(norm)) {
     return personal.get("require visa sponsorship now or in future") ?? null;
   }
-  if (/authoriz|legally authorized|work in the united states/i.test(norm)) {
+  if (/authoriz|legally authorized|work in the united states|work authorization/i.test(norm)) {
     return personal.get("authorized to work in the us") ?? null;
   }
-  if (/relocat|bay area|onsite|live in/i.test(norm)) {
+  if (/relocat|bay area|willing to (move|relocate)|live in .*(area|city)|onsite in/i.test(norm)) {
     return personal.get("willing to relocate") ?? null;
   }
   if (/docker|kubernetes/i.test(norm)) {
@@ -639,11 +638,18 @@ export function lookupChoice(
     if (picked) return { value: picked, source: "skills-profile.md", confidence: "high" };
   }
 
-  // Yes/No questions
+  // Yes/No questions — always return Yes/No from personal-information even if option
+  // captions are polluted (e.g. wrapping label text "Question? Yes No").
   const yn = matchYesNo(label, refs.personal, refs.skills);
   if (yn) {
-    const match = opts.find((o) => normalizeLabel(o) === normalizeLabel(yn));
-    if (match) return { value: match, source: "skills-profile.md", confidence: "high" };
+    const match =
+      opts.find((o) => normalizeLabel(o) === normalizeLabel(yn)) ??
+      opts.find((o) => /^(yes|no)$/i.test(o.trim()) && normalizeLabel(o) === normalizeLabel(yn));
+    return {
+      value: match ?? yn,
+      source: "personal-information.md",
+      confidence: "high",
+    };
   }
 
   // Multi-select / single-select tech lists (not years/proficiency/currency scales)
@@ -827,15 +833,35 @@ export function buildCoverLetterText(refs: FillReferences, ctx: FillContext): st
     ].join("\n");
   }
 
+  // Drop markdown instructions above --- so only the letter body is filled/uploaded.
+  const sep = template.indexOf("\n---\n");
+  if (sep >= 0) template = template.slice(sep + 5).trim();
+  else {
+    template = template
+      .replace(/^#\s.*$/gm, "")
+      .replace(/^---+\s*$/gm, "")
+      .trim();
+  }
+
   const jd = ctx.jobDescription ?? "";
   const mission = extractMissionOrFocus(jd, ctx.company);
   const skills = extractRelevantSkills(jd, refs);
 
-  return template
+  const filled = template
     .replace(/\[COMPANY\]/g, ctx.company)
     .replace(/\[REFER TO MISSION STATEMENT AND\/OR CORE VALUE HERE\]/gi, mission)
     .replace(/\[RELEVANT SKILL 1\]/gi, skills[0] ?? "technical judgment")
     .replace(/\[RELEVANT SKILL 2\]/gi, skills[1] ?? "cross-functional ownership");
+
+  if (
+    /\[COMPANY\]|\[REFER TO MISSION STATEMENT AND\/OR CORE VALUE HERE\]|\[RELEVANT SKILL\s*[12]\]/i.test(
+      filled
+    )
+  ) {
+    throw new Error("Cover letter template still has unfilled placeholders after JD tailoring");
+  }
+
+  return filled;
 }
 
 function extractMissionOrFocus(jd: string, company: string): string {
@@ -951,6 +977,7 @@ export function getResumePath(refs: FillReferences): string {
   return refs.resumePath;
 }
 
+/** @deprecated Prefer prepareCoverLetterPdf() — never upload the static template. */
 export function getCoverLetterPath(refs: FillReferences): string {
   return refs.coverLetterPath;
 }

@@ -12,17 +12,18 @@ import {
   type FillContext,
   type FillReferences,
   buildCoverLetterText,
-  getCoverLetterPath,
   getResumePath,
   isCoverLetterField,
   isOpenEndedField,
   isSensitiveField,
   lookupChoice,
   lookupField,
+  matchYesNo,
   normalizeLabel,
   toDateInputValue,
 } from "./fill-references.js";
-import { getAiCoverLetter, resolveAiFill } from "./ai-fill.js";
+import { resolveAiFill } from "./ai-fill.js";
+import { prepareCoverLetterPdf } from "./cover-letter-pdf.js";
 import { checkUrlHealth } from "../url-health.js";
 import {
   antiBotEnabled,
@@ -368,10 +369,19 @@ async function discoverFields(page: Page): Promise<DiscoveredField[]> {
       const options = inputs.map((i) => {
         const lab =
           i.getAttribute("aria-label") ||
-          i.parentElement?.textContent ||
           i.value ||
+          i.parentElement?.textContent ||
           "";
-        return clean(lab).slice(0, 120);
+        // Prefer short option captions (Yes/No) — wrapping parents often include the whole question.
+        const cleaned = clean(lab).slice(0, 120);
+        if (/^(yes|no)$/i.test(cleaned)) return cleaned;
+        const val = (i.value || "").trim();
+        if (/^(yes|no)$/i.test(val)) return val;
+        const short = cleaned
+          .split(/\n/)
+          .map((s) => clean(s))
+          .find((s) => /^(yes|no)$/i.test(s));
+        return short ?? cleaned;
       });
       add(first, "radio", {
         label,
@@ -394,7 +404,18 @@ async function discoverFields(page: Page): Promise<DiscoveredField[]> {
       if (inputs.length > 1) {
         const first = inputs[0]!;
         const label = groupQuestion(first) || labelFor(first) || name.replace(/[_-]/g, " ");
-        const options = inputs.map((i) => clean(i.parentElement?.textContent ?? i.value ?? "").slice(0, 120));
+        const options = inputs.map((i) => {
+          const val = (i.value || "").trim();
+          if (/^(yes|no)$/i.test(val)) return val;
+          const cleaned = clean(i.getAttribute("aria-label") ?? i.parentElement?.textContent ?? "").slice(0, 120);
+          if (/^(yes|no)$/i.test(cleaned)) return cleaned;
+          const short = cleaned
+            .split(/\n/)
+            .map((s) => clean(s))
+            .find((s) => /^(yes|no)$/i.test(s));
+          return short ?? cleaned;
+        });
+        // Yes/No checkbox pairs behave like radios — expose both options clearly.
         add(first, "checkbox", {
           label,
           selector: `[name="${name.replace(/"/g, '\\"')}"]`,
@@ -404,9 +425,18 @@ async function discoverFields(page: Page): Promise<DiscoveredField[]> {
       } else {
         const input = inputs[0]!;
         const label = groupQuestion(input) || labelFor(input);
+        const optionRaw = clean(
+          input.getAttribute("aria-label") ?? input.value ?? input.parentElement?.textContent ?? ""
+        ).slice(0, 160);
+        const optionLabel = /^(yes|no)$/i.test(optionRaw)
+          ? optionRaw
+          : optionRaw
+              .split(/\n/)
+              .map((s) => clean(s))
+              .find((s) => /^(yes|no)$/i.test(s)) ?? optionRaw;
         add(input, "checkbox", {
           label,
-          optionLabel: clean(input.parentElement?.textContent ?? "").slice(0, 160),
+          optionLabel,
           optionValue: input.value,
           groupKey: name,
         });
@@ -634,16 +664,92 @@ async function fillCheckboxGroup(
 async function fillSingleCheckbox(page: Page, field: DiscoveredField, shouldCheck: boolean): Promise<boolean> {
   try {
     const box = page.locator(field.selector).first();
-    if (!(await box.isVisible().catch(() => false))) return false;
+    // Ashby/Greenhouse often hide native inputs (opacity:0) — still force-check.
+    const count = await box.count();
+    if (count === 0) return false;
     if (shouldCheck) {
       await box.check({ force: true }).catch(async () => {
         await box.click({ force: true });
       });
+      const checked = await box.isChecked().catch(() => false);
+      return checked;
     }
+    await box.uncheck({ force: true }).catch(async () => {
+      if (await box.isChecked().catch(() => false)) await box.click({ force: true });
+    });
     return true;
   } catch {
     return false;
   }
+}
+
+/**
+ * Click Yes/No for work-auth / relocate / similar questions.
+ * Handles radio groups, checkbox pairs, and Ashby-style hidden inputs + labeled options.
+ */
+async function fillYesNoChoice(page: Page, field: DiscoveredField, answer: string): Promise<boolean> {
+  const want = /^yes$/i.test(answer.trim()) ? "Yes" : /^no$/i.test(answer.trim()) ? "No" : "";
+  if (!want) return false;
+  const wantRe = new RegExp(`^\\s*${want}\\s*$`, "i");
+
+  // 1) Native group via discovered selector
+  if (field.type === "radio" || (field.type === "checkbox" && field.options && field.options.length > 1)) {
+    if (field.type === "radio" && (await fillRadioGroup(page, field, want))) return true;
+    if (field.type === "checkbox" && (await fillCheckboxGroup(page, field, [want]))) return true;
+  }
+
+  // 2) Scope to the question's field container, then click Yes/No control
+  const qSnippet = field.label.replace(/\s+/g, " ").trim().slice(0, 60);
+  const questionLoc = page.getByText(qSnippet, { exact: false }).first();
+  const scoped = questionLoc.locator(
+    'xpath=ancestor::*[self::fieldset or @data-field-path or contains(@class,"field") or contains(@class,"Question") or contains(@class,"_field")][1]'
+  );
+  const hasScope = (await scoped.count().catch(() => 0)) > 0;
+  const scope = hasScope ? scoped : null;
+
+  const tryClick = async (loc: ReturnType<Page["locator"]>): Promise<boolean> => {
+    const n = await loc.count().catch(() => 0);
+    if (n === 0) return false;
+    const el = loc.first();
+    await el.scrollIntoViewIfNeeded().catch(() => {});
+    await el.click({ force: true }).catch(async () => {
+      await el.check({ force: true }).catch(() => {});
+    });
+    return true;
+  };
+
+  const tryIn = async (root: ReturnType<Page["locator"]>): Promise<boolean> => {
+    if (await tryClick(root.getByRole("radio", { name: wantRe }))) return true;
+    if (await tryClick(root.getByRole("checkbox", { name: wantRe }))) return true;
+    if (await tryClick(root.locator("label").filter({ hasText: wantRe }))) return true;
+    if (
+      await tryClick(
+        root.locator(
+          `input[type="radio"][value="${want}"], input[type="radio"][value="${want.toLowerCase()}"], input[type="checkbox"][value="${want}"], input[type="checkbox"][value="${want.toLowerCase()}"]`
+        )
+      )
+    ) {
+      return true;
+    }
+    return false;
+  };
+
+  if (scope && (await tryIn(scope))) return true;
+
+  // Scope from the discovered control itself (hidden native input → parent field)
+  if (field.selector) {
+    const fromControl = page.locator(field.selector).first().locator(
+      'xpath=ancestor::*[self::fieldset or @data-field-path or contains(@class,"field") or contains(@class,"Question")][1]'
+    );
+    if ((await fromControl.count().catch(() => 0)) > 0 && (await tryIn(fromControl))) return true;
+  }
+
+  // 3) Single discovered checkbox: only check when answer is Yes (consent-style / affirmative-only UI)
+  if (field.type === "checkbox" && want === "Yes" && !field.options?.length) {
+    return fillSingleCheckbox(page, field, true);
+  }
+
+  return false;
 }
 
 async function fillFileField(page: Page, field: DiscoveredField, filePath: string): Promise<boolean> {
@@ -1046,17 +1152,37 @@ export async function fillApplicationForm(
       continue;
     }
 
-    // Cover letter file upload → template PDF
+    // Cover letter file upload → tailored PDF under data/fill/cover-letters/ (never the template)
     if (field.type === "file" && isCoverLetterField(field.label)) {
-      const path = getCoverLetterPath(refs);
-      const ok = await fillFileField(page, field, path);
+      let pdfPath = "";
+      try {
+        pdfPath = await prepareCoverLetterPdf(refs, ctx);
+      } catch (err) {
+        unfilledFields.push({
+          label: field.label,
+          suggestedAnswer: err instanceof Error ? err.message : String(err),
+          reason: "file_missing",
+          source: "cover-letter.md",
+        });
+        continue;
+      }
+      if (/cover-letter-template/i.test(pdfPath)) {
+        unfilledFields.push({
+          label: field.label,
+          suggestedAnswer: "refused to upload static cover-letter-template.pdf",
+          reason: "file_missing",
+          source: "cover-letter.md",
+        });
+        continue;
+      }
+      const ok = await fillFileField(page, field, pdfPath);
       if (ok) filledFields.push(field.label);
       else {
         unfilledFields.push({
           label: field.label,
-          suggestedAnswer: path,
+          suggestedAnswer: pdfPath,
           reason: "file_missing",
-          source: "cover-letter-template.pdf",
+          source: "cover-letter.md",
         });
       }
       continue;
@@ -1094,7 +1220,10 @@ export async function fillApplicationForm(
       }
 
       let ok = false;
-      if (field.type === "select") {
+      const ynAnswer = matchYesNo(field.label, refs.personal, refs.skills);
+      if (ynAnswer && /^(yes|no)$/i.test(choice.value)) {
+        ok = await fillYesNoChoice(page, field, choice.value);
+      } else if (field.type === "select") {
         const selectVal =
           choice.values && choice.values.length > 1 ? choice.values.join("||") : choice.value;
         ok = await fillSelectField(page, field, selectVal);
@@ -1116,7 +1245,7 @@ export async function fillApplicationForm(
       continue;
     }
 
-    // Single consent checkbox
+    // Single checkbox — Yes/No work-auth/relocate use dedicated click path; else consent-style
     if (field.type === "checkbox") {
       const consent = /privacy|ccpa|terms of (service|use)|i agree to|agree to the processing/i.test(
         field.label
@@ -1125,6 +1254,22 @@ export async function fillApplicationForm(
       if (/sms|text message|marketing|newsletter/i.test(field.label)) {
         continue;
       }
+
+      const yn = matchYesNo(field.label, refs.personal, refs.skills);
+      if (yn) {
+        const ok = await fillYesNoChoice(page, { ...field, options: ["Yes", "No"] }, yn);
+        if (ok) filledFields.push(field.label);
+        else {
+          unfilledFields.push({
+            label: field.label,
+            suggestedAnswer: yn,
+            reason: "no_match",
+            source: "personal-information.md",
+          });
+        }
+        continue;
+      }
+
       const choice = lookupChoice(field.label, [field.optionLabel ?? "Yes", "No"], refs, ctx);
       const shouldCheck = consent || (Boolean(choice.value) && !/^no$/i.test(choice.value));
       if (!shouldCheck) continue;
@@ -1144,16 +1289,15 @@ export async function fillApplicationForm(
     // Text / textarea / combobox / date
     let lookup = lookupField(field.label, refs, ctx);
 
-    // Cover letter: template.md (+ JD-tailored last paragraph), or agent-provided cover_letter
+    // Cover letter: template.md (+ JD-tailored last paragraph)
     if (isCoverLetterField(field.label) || normalizeLabel(field.label).replace(/\s+/g, "") === "ccoverletter") {
-      const aiCover = getAiCoverLetter(item.page_id);
       lookup = {
-        value: aiCover ?? buildCoverLetterText(refs, ctx),
-        source: aiCover ? "ai-answers.json" : "cover-letter.md",
+        value: buildCoverLetterText(refs, ctx),
+        source: "cover-letter.md",
         confidence: "high",
       };
     } else if (isOpenEndedField(field.label, field.type)) {
-      // Open-ended: AI-fill first (never prefer raw projects/answers paste over JD-aware text)
+      // Open-ended: answers.md seed (optional LLM tailor) — never invent without a seed hit
       const ai = await resolveAiFill(field.label, refs, ctx, item.page_id);
       if (ai) {
         lookup = { value: ai.value, source: ai.source, confidence: "high" };

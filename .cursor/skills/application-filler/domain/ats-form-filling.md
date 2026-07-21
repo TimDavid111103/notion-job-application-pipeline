@@ -17,16 +17,18 @@ reconnect and classify spam vs success. Requires Accessibility permission for Cu
 
 **Workable quirks:** dismiss cookie banners first; prefer `input.labels` for field titles (wrapping labels); unlabeled required file inputs next to “Resume” still upload; convert annual salary → monthly when the label says per month; skip website NPS widgets.
 
+**Yes/No (work auth, sponsorship, relocate):** map from `personal-information.md` via `matchYesNo`. Click the **Yes** or **No** control in that question’s field container (radio / checkbox / label) — never skip because the native input is visually hidden, and never click a page-wide “Yes” that belongs to another question.
+
 ## Flow per job
 
 1. Navigate to Job URL; **dismiss cookie banners** (`Accept all cookies` / `Accept all` / etc.); click Apply (host-specific table below)
-2. Prep AI-fill: `data/fill/ai-answers.json` from page JD + assets **only for questions with an `answers.md` seed hit**; Additional Information → relevant-experience answer; leave the rest blank. Optional live LLM via API keys (same gate).
+2. Open-ended fields: resolve from **`answers.md`** (optional LLM tailor to the JD). No seed hit → leave blank.
 3. Discover fields (group questions for radios/checkboxes; `label[for]` / `data-field-path` when `id`/`name` missing)
 4. Upload resume; wait for processing UI to settle
 5. Strip ATS work-experience rows (Delete controls + clear leftover company/title/summary); fill education dates when present
 6. Re-discover; auto-fill text / selects / multi-selects / consent / EEO / skills (overwrite ATS)
 7. AI-fill open-ended textareas — only when `answers.md` ranks a seed; Additional Information uses relevant experience; never invent for unmatched questions
-8. Cover letter: `cover-letter.md` (textarea) or `cover-letter-template.pdf` (file)
+8. Cover letter: tailored `cover-letter.md` text (textarea) **or** generated PDF under `data/fill/cover-letters/` with placeholders filled and a proper filename (file) — never the static template PDF
 9. Chat handoff — AskQuestion: Applied / Invalid / Feedback (`AUTO_PAUSE` off)
 
 ## Host-specific Apply navigation

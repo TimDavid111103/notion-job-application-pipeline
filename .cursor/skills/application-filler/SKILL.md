@@ -142,7 +142,7 @@ Opens a visible browser, pre-fills fields, leaves the tab open. Further jobs in 
 
 **Must run outside the Cursor sandbox** (`required_permissions: ["all"]`). **Background the fill process** so chat does not kill Chrome — see [protocol/agent-runtime.md](protocol/agent-runtime.md).
 
-Before fill: write `data/fill/ai-answers.json` for open-ended fields (JD + assets), unless LLM API keys are set for live generation — see [domain/fill-references.md](domain/fill-references.md).
+Open-ended fill uses `assets/answers.md` — see [domain/fill-references.md](domain/fill-references.md).
 
 ```bash
 HEADED=1 npm run fill:application

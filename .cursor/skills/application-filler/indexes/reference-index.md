@@ -42,8 +42,8 @@
 | [personal-information.md](../assets/personal-information.md) | Live standard form values |
 | [personal-information.template.md](../assets/personal-information.template.md) | Versioned schema template |
 | [projects.md](../assets/projects.md) | Project write-ups |
-| [answers.md](../assets/answers.md) | Themed screening Q&A seeds (AI-fill retrieval) |
+| [answers.md](../assets/answers.md) | **SoT** for screening Q&A seeds (open-ended AI-fill) |
 | [cover-letter.md](../assets/cover-letter.md) | Cover letter text template |
 | [skills-profile.md](../assets/skills-profile.md) | Experience defaults + tech/skills for selects |
 | [documents/resume.pdf](../assets/documents/resume.pdf) | Required resume upload |
-| [documents/cover-letter-template.pdf](../assets/documents/cover-letter-template.pdf) | Cover letter PDF twin |
+| [documents/cover-letter-template.pdf](../assets/documents/cover-letter-template.pdf) | Static draft twin only — never uploaded; runtime writes tailored PDFs under `data/fill/cover-letters/` |

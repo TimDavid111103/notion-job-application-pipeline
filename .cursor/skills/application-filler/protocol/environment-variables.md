@@ -14,7 +14,7 @@
 | `CHROME_PATH` | auto | Optional path to Chrome/Chromium for CDP launch |
 | `AUTO_PAUSE` | off | Opt-in `page.pause()` (Playwright inspector overlay) |
 | `KEEP_BROWSER_OPEN` | on when `HEADED=1` | Keep the fill **process** alive after pre-fill. Unblock via Enter, closing Chrome, or `data/fill/handoff-continue` |
-| `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` | unset | Optional live AI-fill for open-ended fields when `data/fill/ai-answers.json` is missing |
+| `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` | unset | Optional: tailor `answers.md` seeds to the JD during open-ended fill |
 | `ANTHROPIC_MODEL` / `OPENAI_MODEL` | sonnet / gpt-4o-mini | Model override for live AI-fill |
 | `SCRAPE_TIMEOUT_MS` | — | Fallback for URL_HEALTH_TIMEOUT_MS |
 | `PLAYWRIGHT_BROWSERS_PATH` | auto | Set by `playwright-env.ts` to `~/Library/Caches/ms-playwright` |

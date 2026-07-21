@@ -1,7 +1,11 @@
 # Cover Letter Template
 
-Canonical text form of `documents/cover-letter-template.pdf`.  
-Fill engine uses this for textarea cover letters. PDF upload fields still use the PDF file.
+Canonical letter text. Twin static PDF (human-edited draft): `documents/cover-letter-template.pdf`.
+
+**Runtime rule:** never upload the static template. The fill engine always:
+1. Fills last-paragraph placeholders from the Notion JD (`[COMPANY]`, mission/value, two skills)
+2. Writes a tailored PDF under `data/fill/cover-letters/{Name}-{Company}-cover-letter.pdf`
+3. Uploads that generated file (or pastes the same text into a cover-letter textarea)
 
 Placeholders in the **last paragraph only** are filled per job from the Notion job description:
 

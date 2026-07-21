@@ -17,7 +17,7 @@ Versioned JSON envelopes under `data/fill/`. Schema version: `1`. Builders: `scr
 | `notion-fill-queue.json` | Temporary — step 5 |
 | `fill-session.json` | Temporary — step 6 |
 | `url-health-results.json` | Temporary — step 7 |
-| `ai-answers.json` | Temporary — step 9 (AI-fill) |
+| `cover-letters/*.pdf` | Temporary — step 9 (tailored cover-letter uploads) |
 | `fill-results.json` | Temporary — step 9 |
 | `handoff-continue` | Temporary — step 9 handoff signal |
 
@@ -56,23 +56,6 @@ Removed by `npm run cleanup:data`.
       "jobDescription": "Optional — Notion page body markdown for AI-fill / cover letter"
     }
   ]
-}
-```
-
-## ai-answers.json
-
-Agent- or LLM-written open-ended answers for the current job (step 9):
-
-```json
-{
-  "page_id": "…",
-  "company": "Acme",
-  "role": "Software Engineer",
-  "answers": {
-    "Experience Summary": "…",
-    "Why Acme?": "…"
-  },
-  "cover_letter": "Optional full letter text overriding cover-letter.md generation"
 }
 ```
 

@@ -29,6 +29,7 @@
     "run-log:basename:fill": "RUN_LOG_SKILL=fill node --import tsx scripts/shared/run-log-basename.ts"
   },
   "dependencies": {
+    "pdf-lib": "^1.17.1",
     "playwright": "^1.52.0"
   },
   "devDependencies": {

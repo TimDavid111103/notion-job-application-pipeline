@@ -13,7 +13,7 @@ Everything else under `data/`, including lane folders:
 
 - `data/source/` — Notion snapshot + payloads
 - `data/scrape/` — scrape snapshot, queue, results
-- `data/fill/` — fill snapshot, queue, session, url-health, results
+- `data/fill/` — fill snapshot, queue, session, url-health, results, tailored cover-letter PDFs
 
 Writers recreate lane directories via `ensureParentDir()` when needed.
 
