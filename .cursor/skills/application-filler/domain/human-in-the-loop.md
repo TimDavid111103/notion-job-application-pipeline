@@ -44,8 +44,8 @@ Use `buildFillSessionFile()` from `scripts/lib/artifacts/fill-artifacts.ts`.
 
 **Do not use the Playwright inspector** (`page.pause()` is off by default). After each headed pre-fill, ask with **AskQuestion** (multiple choice) **here in chat**:
 
-1. **Applied** — mark Status `Applied` in Notion, then open the next job
-2. **Invalid** — mark Status `Invalid` in Notion, then open the next job
+1. **Applied** — mark Status `Applied` in Notion, write `handoff-continue` so the same fill process opens the next job as a tab
+2. **Invalid** — mark Status `Invalid` in Notion, write `handoff-continue` for the next job
 3. **Feedback** — stay on the current job; update the skill from the user's feedback, then re-ask this question
 
 ## Step 10 — Status on open

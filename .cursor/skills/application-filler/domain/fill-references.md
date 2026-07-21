@@ -50,11 +50,11 @@ Themes in `answers.md` are **retrieval keys**. For each form label the engine:
 
 - **Salary** — midpoint of asset/posting range when a range exists; otherwise `Salary default`.
 - **Experience / tech** — skills-profile defaults (years band, max proficiency for in-scope tech, primary > secondary, never outside scope).
-- **Sponsorship** — “authorized **without** sponsorship?” → **No** when `Require visa sponsorship` is Yes (even if authorized to work). Plain “require sponsorship?” → asset value (`Yes`/`No`).
-- **Yes/No clicks** — work authorization, sponsorship, and relocate/Bay Area questions are filled by clicking the matching Yes/No control (not by checking a lone unlabeled box).
+- **Sponsorship** — choice widgets (Yes/No): “authorized **without** sponsorship?” → **No** when `Require visa sponsorship` is Yes; plain “require sponsorship?” → that Yes/No. Free-text sponsorship fields → `Visa sponsorship (open-ended)` (e.g. “Yes, I require basic F-1 OPT sponsorship”), never a bare Yes.
+- **Yes/No clicks** — work authorization, sponsorship, and relocate/Bay Area questions are filled by clicking the matching Yes/No option in the field (including ATS option buttons), not by checking a lone unlabeled box.
 - **Current company** — `N/A` when not employed (`Current company` in personal-information); overwrite ATS resume-parsed employers.
 - **Portfolio URL** — GitHub profile URL (same as `GitHub` / `Portfolio URL` in personal-information), not project essay text.
-- **Cover letter** — fill last-paragraph placeholders from the JD; textarea uses tailored text; file upload uses a generated PDF under `data/fill/cover-letters/` with a `{Name}-{Company}-cover-letter.pdf` filename. **Never** attach `cover-letter-template.pdf` with placeholders left in.
+- **Cover letter** — fill last-paragraph placeholders from the JD; mission slot = mission/values/product purpose (never role title, never queue scrap). Textarea uses tailored text; file upload uses a generated PDF under `data/fill/cover-letters/` with a `{Name}-{Company}-cover-letter.pdf` filename. **Never** attach `cover-letter-template.pdf` with placeholders left in.
 - **Resume** — canonical path only; fail fast if missing.
 - **Sensitive** — never auto-fill SSN, passport, driver’s license, government ID, bank/card, passwords.
 - **ATS junk** — delete resume-parsed work-experience rows before filling.

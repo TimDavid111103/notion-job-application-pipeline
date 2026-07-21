@@ -254,6 +254,7 @@ async function main(): Promise<void> {
     for (let i = 0; i < toProcess.length; i++) {
       const item = toProcess[i]!;
       console.log(`\n[${i + 1}/${toProcess.length}] Filling: ${item.company}: ${item.role}`);
+
       let page = await getPage(aggregatorForUrl(item.jobUrl));
       let result = await fillApplicationForm(page, item, refs);
 

@@ -545,6 +545,33 @@ export function matchYesNo(label: string, personal: Map<string, string>, skills:
   return null;
 }
 
+/**
+ * Free-text sponsorship / visa questions (not Yes/No widgets).
+ * Prefer `Visa sponsorship (open-ended)` from personal-information.md.
+ */
+export function matchSponsorshipOpenEnded(
+  label: string,
+  personal: Map<string, string>
+): string | null {
+  const norm = normalizeLabel(label);
+  if (!/sponsor/i.test(norm) && !(/visa/i.test(norm) && /need|require|type|status|mention/i.test(norm))) {
+    return null;
+  }
+  // Inverted choice-style wording belongs to matchYesNo, not a prose answer.
+  if (/without|no longer|not require/i.test(norm) && /sponsor/i.test(norm)) return null;
+
+  const detail =
+    personal.get("visa sponsorship (open-ended)") ?? personal.get("visa sponsorship detail");
+  if (detail?.trim()) return detail.trim();
+
+  const need = personal.get("require visa sponsorship now or in future");
+  if (!need) return null;
+  if (/^no$/i.test(need.trim())) return "No";
+  const visa = personal.get("current visa / status")?.trim();
+  if (visa) return `Yes, I require basic ${visa} sponsorship`;
+  return "Yes, I require basic F-1 OPT sponsorship";
+}
+
 function fieldLooksLikeCurrencySelect(opts: string[]): boolean {
   const hit = opts.filter((o) => /dollar|euro|real|pound|yen|rupee|\$|€|£/i.test(o)).length;
   return hit >= 5;
@@ -802,6 +829,10 @@ export function isOpenEndedField(label: string, type: string): boolean {
   if (type !== "textarea" && type !== "text") return false;
   const norm = normalizeLabel(label);
   if (isCoverLetterField(norm)) return false;
+  // Sponsorship / visa detail is auto-fill from personal-information, not answers.md.
+  if (/sponsor/i.test(norm) || (/visa/i.test(norm) && /need|require|type|status|mention/i.test(norm))) {
+    return false;
+  }
   // Word boundaries — avoid "linkedin"/"name" substring false positives on long questions.
   if (
     /\b(name|email|phone|address|linkedin|github|salary|date|school|university)\b/i.test(norm)
@@ -864,22 +895,57 @@ export function buildCoverLetterText(refs: FillReferences, ctx: FillContext): st
   return filled;
 }
 
-function extractMissionOrFocus(jd: string, company: string): string {
-  const text = jd.replace(/\s+/g, " ").trim();
-  if (!text) {
-    return `the work you're doing in this role and the chance to build with judgment, not just code`;
+/** Queue one-liners like "Role at Co — tech, tech, tech" are not mission statements. */
+function looksLikeQueueScrap(sentence: string): boolean {
+  const s = sentence.trim();
+  if (/[—–]/.test(s) && (s.match(/,/g) ?? []).length >= 2) return true;
+  if (
+    /^(software engineer|full[- ]stack|product engineer|founding|ai first).{0,100}\s(at|for)\s.+/i.test(s) &&
+    /[—–]/.test(s)
+  ) {
+    return true;
   }
+  return false;
+}
+
+/**
+ * Fill [REFER TO MISSION STATEMENT…] with mission / values / product purpose from the JD.
+ * Never use the job title or a Notion queue scrap line.
+ */
+function extractMissionOrFocus(jd: string, company: string): string {
+  const generic = `the work you're doing in this role and the chance to build with judgment, not just code`;
+  const text = jd
+    .replace(/^#+\s*/gm, "")
+    .replace(
+      /\b(Job Description|Company Overview|Position Summary|Key Responsibilities(?:\s*&\s*Feature Scope)?|Technical Requirements|Preferred Qualities|Project Details)\b:?/gi,
+      " "
+    )
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!text) return generic;
+
   const missionHit = text.match(
-    /(?:mission|vision|we believe|our goal|we're building|we are building|core values?)[:\s]+([^.]{20,180}\.)/i
+    /(?:mission|vision|we believe|our goal|we're building|we are building|core values?)[:\s]+([^.]{20,220}\.)/i
   );
-  if (missionHit?.[1]) return missionHit[1].trim();
-  // Fall back: first substantial sentence mentioning product/customers/AI
-  const sentences = text.split(/(?<=\.)\s+/).filter((s) => s.length > 40);
-  const focused =
-    sentences.find((s) => /mission|customer|product|ai|agent|platform|automat/i.test(s)) ??
-    sentences[0];
-  if (focused) return focused.replace(/^#+\s*/, "").trim().slice(0, 200);
-  return `how ${company} approaches this problem space`;
+  if (missionHit?.[1]) {
+    const m = missionHit[1].trim().replace(/\.$/, "");
+    if (m && !looksLikeQueueScrap(m)) return m;
+  }
+
+  const sentences = text
+    .split(/(?<=\.)\s+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 50 && !looksLikeQueueScrap(s));
+
+  const focused = sentences.find((s) =>
+    /mission|vision|we believe|our goal|core value|we're building|we are building|designed to|platform (for|that)|helps? (companies|teams|customers|engineering)|connects? |curated |infrastructure (layer|for)/i.test(
+      s
+    )
+  );
+  if (focused) return focused.slice(0, 220).replace(/\.$/, "");
+
+  // No mission-like sentence (e.g. queue scrap only) — generic fit phrase, not the role title.
+  return generic;
 }
 
 function extractRelevantSkills(jd: string, refs: FillReferences): [string, string] {
@@ -922,6 +988,16 @@ export function lookupField(
       value: buildCoverLetterText(refs, ctx),
       source: "cover-letter.md",
       confidence: "medium",
+    };
+  }
+
+  // Text/textarea sponsorship: full visa sentence — not bare Yes/No (choice widgets use matchYesNo).
+  const sponsorshipText = matchSponsorshipOpenEnded(label, refs.personal);
+  if (sponsorshipText) {
+    return {
+      value: interpolate(sponsorshipText, ctx),
+      source: "personal-information.md",
+      confidence: "high",
     };
   }
 

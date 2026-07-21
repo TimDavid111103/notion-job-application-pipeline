@@ -10,7 +10,7 @@ Canonical letter text. Twin static PDF (human-edited draft): `documents/cover-le
 Placeholders in the **last paragraph only** are filled per job from the Notion job description:
 
 - `[COMPANY]` → company name
-- `[REFER TO MISSION STATEMENT AND/OR CORE VALUE HERE]` → mission / values / product focus from the JD
+- `[REFER TO MISSION STATEMENT AND/OR CORE VALUE HERE]` → mission / values / product purpose from the JD (never the role title, never a queue JD scrap). If none is found, a short generic fit phrase.
 - `[RELEVANT SKILL 1]` / `[RELEVANT SKILL 2]` → skills from the JD that match the skills profile
 
 ---

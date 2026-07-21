@@ -11,6 +11,7 @@
 | `AUTO_SUBMIT` | off | When `1`: disconnect CDP → Accessibility click Submit → reconnect + classify spam/success |
 | `ANTI_BOT` | on with `AUTO_SUBMIT` | Warm-up + human mouse/keyboard/clipboard input. Set `0` to disable |
 | `BROWSER_CDP` | on when headed | Spawn system Chrome and attach over CDP. Set `0` to force `chromium.launch` |
+| `BROWSER_CDP_REUSE` | on | Reuse an already-open fill Chrome (same window, new tabs). Set `0` to kill and spawn fresh |
 | `CHROME_PATH` | auto | Optional path to Chrome/Chromium for CDP launch |
 | `AUTO_PAUSE` | off | Opt-in `page.pause()` (Playwright inspector overlay) |
 | `KEEP_BROWSER_OPEN` | on when `HEADED=1` | Keep the fill **process** alive after pre-fill. Unblock via Enter, closing Chrome, or `data/fill/handoff-continue` |

@@ -203,11 +203,52 @@ async function killAutomationChrome(): Promise<void> {
   cdpPort = null;
 }
 
+/**
+ * If a prior headed fill left Chrome open, recover its CDP port so the next
+ * fill:application reuses that window (new tabs) instead of spawning another.
+ * Set BROWSER_CDP_REUSE=0 to force a fresh Chrome.
+ */
+async function findExistingFillChromePort(): Promise<number | null> {
+  if (process.env.BROWSER_CDP_REUSE === "0") return null;
+  const pids = await automationChromePids();
+  for (const pid of pids) {
+    try {
+      const { stdout } = await execFileAsync("ps", ["eww", "-p", String(pid)], {
+        encoding: "utf8",
+        maxBuffer: 2 * 1024 * 1024,
+      });
+      const m = stdout.match(/--remote-debugging-port=(\d+)/);
+      if (!m) continue;
+      const port = parseInt(m[1]!, 10);
+      if (!Number.isFinite(port)) continue;
+      try {
+        const res = await fetch(`http://127.0.0.1:${port}/json/version`);
+        if (res.ok) return port;
+      } catch {
+        /* try next pid */
+      }
+    } catch {
+      /* try next pid */
+    }
+  }
+  return null;
+}
+
 async function launchBrowserViaCdp(headed: boolean, stealFocus: boolean): Promise<Browser> {
   const chromePath = chromeExecutablePath();
   if (!chromePath) throw new Error("Google Chrome not found for CDP launch");
   await mkdir(CHROME_FILL_PROFILE_DIR, { recursive: true });
-  // Clear orphans from prior runs / timed-out CDP attaches before starting another.
+
+  const existingPort = await findExistingFillChromePort();
+  if (existingPort != null) {
+    cdpPort = existingPort;
+    console.log(`Reusing fill Chrome CDP (port ${existingPort}) — new jobs open as tabs in that window`);
+    const browser = await chromium.connectOverCDP(`http://127.0.0.1:${existingPort}`);
+    console.log("Browser attached via CDP (system Chrome)");
+    return browser;
+  }
+
+  // No live fill Chrome — clear orphans, then spawn one window for the session.
   await killAutomationChrome();
   const port = 9222 + Math.floor(Math.random() * 800);
   cdpPort = port;

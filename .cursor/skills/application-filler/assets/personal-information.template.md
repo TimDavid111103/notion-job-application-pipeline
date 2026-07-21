@@ -25,6 +25,7 @@ Copy to `.cursor/skills/application-filler/assets/personal-information.md` and f
 |---|---|
 | Authorized to work in the US | Yes / No |
 | Require visa sponsorship now or in future | Yes / No |
+| Visa sponsorship (open-ended) | Yes, I require basic F-1 OPT sponsorship |
 | Current visa / status | |
 | Citizenship | |
 | OPT / CPT eligible | Yes / No |

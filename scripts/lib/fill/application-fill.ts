@@ -109,6 +109,28 @@ export async function navigateToApplicationForm(page: Page, rawUrl: string): Pro
     return;
   }
 
+  // Handshake: in-app Apply opens a modal (profile resume + cover letter / docs) — same window, no external ATS.
+  if (host.includes("joinhandshake.com")) {
+    await dismissCookieBanner(page);
+    const applyBtn = page
+      .getByRole("button", { name: /^apply$/i })
+      .or(page.locator("button[aria-label='Apply']"))
+      .first();
+    if (await applyBtn.isVisible().catch(() => false)) {
+      await applyBtn.click();
+      await page.waitForTimeout(2000);
+    }
+    // Wait for the Apply modal (heading + Submit Application).
+    await page
+      .getByRole("heading", { name: /apply to/i })
+      .or(page.getByRole("button", { name: /submit application/i }))
+      .first()
+      .waitFor({ state: "visible", timeout: 20_000 })
+      .catch(() => {});
+    await page.waitForTimeout(500);
+    return;
+  }
+
   if (host.includes("myworkdayjobs.com") || host.includes("workday.com")) {
     await dismissCookieBanner(page);
     const apply = page
@@ -192,6 +214,24 @@ async function discoverFields(page: Page): Promise<DiscoveredField[]> {
     const clean = (s: string) => s.replace(/\s+/g, " ").trim();
     const OPTION_ONLY =
       /^(yes|no|male|female|none|beginner|intermediate|advanced|expert|less than.*|i don't wish to answer)$/i;
+
+    // Handshake Apply modal: prefer that subtree so Share/Message chrome is ignored.
+    let root: ParentNode = document;
+    const applyHeading = [...document.querySelectorAll("h1, h2, h3, [role='heading']")].find((h) =>
+      /apply to\b/i.test(h.textContent || "")
+    );
+    if (applyHeading) {
+      let cur: HTMLElement | null = applyHeading as HTMLElement;
+      for (let i = 0; i < 14 && cur; i++) {
+        const t = cur.innerText || "";
+        if (/Submit Application/i.test(t) && /Attach your (resume|cover letter)/i.test(t)) {
+          root = cur;
+          break;
+        }
+        cur = cur.parentElement;
+      }
+    }
+    const qsa = (sel: string): Element[] => [...root.querySelectorAll(sel)];
 
     const isQuestionLike = (t: string): boolean => {
       if (!t || t.length < 8 || t.length > 220) return false;
@@ -335,6 +375,9 @@ async function discoverFields(page: Page): Promise<DiscoveredField[]> {
       if (/^email$/i.test(nameAttr) || inputType === "email") label = "Email";
       if (/^firstname$/i.test(nameAttr)) label = "First name";
       if (/^lastname$/i.test(nameAttr)) label = "Last name";
+      // Handshake file inputs: name="file-Cover Letter" with visible text "Upload new"
+      if (inputType === "file" && /cover\s*letter/i.test(nameAttr)) label = "Cover Letter";
+      if (inputType === "file" && /\bresume\b/i.test(nameAttr)) label = "Resume";
       if (!label || OPTION_ONLY.test(label)) return;
       // Multi-sentence screening questions often contain 2+ '?'; only reject that for choice widgets.
       if (type !== "textarea" && type !== "text" && (label.match(/\?/g) ?? []).length > 1) return;
@@ -356,7 +399,7 @@ async function discoverFields(page: Page): Promise<DiscoveredField[]> {
 
     // Group radios by name
     const radiosByName = new Map<string, HTMLInputElement[]>();
-    document.querySelectorAll('input[type="radio"]').forEach((el) => {
+    qsa('input[type="radio"]').forEach((el) => {
       const input = el as HTMLInputElement;
       const key = input.name || input.id || `anon-${radiosByName.size}`;
       const list = radiosByName.get(key) ?? [];
@@ -393,7 +436,7 @@ async function discoverFields(page: Page): Promise<DiscoveredField[]> {
 
     // Checkboxes — group by name when shared (multi-select)
     const checksByName = new Map<string, HTMLInputElement[]>();
-    document.querySelectorAll('input[type="checkbox"]').forEach((el) => {
+    qsa('input[type="checkbox"]').forEach((el) => {
       const input = el as HTMLInputElement;
       const key = input.name || `solo-${checksByName.size}-${input.id}`;
       const list = checksByName.get(key) ?? [];
@@ -443,23 +486,21 @@ async function discoverFields(page: Page): Promise<DiscoveredField[]> {
       }
     }
 
-    document
-      .querySelectorAll(
-        "input:not([type='hidden']):not([type='submit']):not([type='button']):not([type='radio']):not([type='checkbox'])"
-      )
-      .forEach((el) => {
-        const input = el as HTMLInputElement;
-        const type = input.type;
-        if (type === "file") add(el, "file");
-        else if (type === "date") add(el, "date");
-        else if (input.getAttribute("role") === "combobox") add(el, "combobox");
-        else add(el, "text");
-      });
-    document.querySelectorAll("textarea").forEach((el) => {
+    qsa(
+      "input:not([type='hidden']):not([type='submit']):not([type='button']):not([type='radio']):not([type='checkbox'])"
+    ).forEach((el) => {
+      const input = el as HTMLInputElement;
+      const type = input.type;
+      if (type === "file") add(el, "file");
+      else if (type === "date") add(el, "date");
+      else if (input.getAttribute("role") === "combobox") add(el, "combobox");
+      else add(el, "text");
+    });
+    qsa("textarea").forEach((el) => {
       if ((el as HTMLTextAreaElement).name?.includes("recaptcha")) return;
       add(el, "textarea");
     });
-    document.querySelectorAll("select").forEach((el) => {
+    qsa("select").forEach((el) => {
       const options = [...el.querySelectorAll("option")]
         .map((o) => clean(o.textContent ?? ""))
         .filter((t) => t && !/^select/i.test(t));
@@ -528,7 +569,10 @@ function isIgnorableField(label: string): boolean {
   const norm = normalizeLabel(label);
   return (
     /how was your experience on this website/i.test(norm) ||
-    /personal information\s*clear/i.test(norm)
+    /personal information\s*clear/i.test(norm) ||
+    // Handshake cover-letter library chrome (file upload is the real control).
+    /^upload new$/i.test(norm) ||
+    /^search your cover letters$/i.test(norm)
   );
 }
 
@@ -685,27 +729,21 @@ async function fillSingleCheckbox(page: Page, field: DiscoveredField, shouldChec
 
 /**
  * Click Yes/No for work-auth / relocate / similar questions.
- * Handles radio groups, checkbox pairs, and Ashby-style hidden inputs + labeled options.
+ * Handles radio groups, checkbox pairs, and Ashby Yes/No button pairs
+ * (`<button>Yes</button><button>No</button>` + hidden checkbox).
  */
 async function fillYesNoChoice(page: Page, field: DiscoveredField, answer: string): Promise<boolean> {
   const want = /^yes$/i.test(answer.trim()) ? "Yes" : /^no$/i.test(answer.trim()) ? "No" : "";
   if (!want) return false;
   const wantRe = new RegExp(`^\\s*${want}\\s*$`, "i");
 
-  // 1) Native group via discovered selector
-  if (field.type === "radio" || (field.type === "checkbox" && field.options && field.options.length > 1)) {
-    if (field.type === "radio" && (await fillRadioGroup(page, field, want))) return true;
-    if (field.type === "checkbox" && (await fillCheckboxGroup(page, field, [want]))) return true;
-  }
-
-  // 2) Scope to the question's field container, then click Yes/No control
-  const qSnippet = field.label.replace(/\s+/g, " ").trim().slice(0, 60);
-  const questionLoc = page.getByText(qSnippet, { exact: false }).first();
-  const scoped = questionLoc.locator(
-    'xpath=ancestor::*[self::fieldset or @data-field-path or contains(@class,"field") or contains(@class,"Question") or contains(@class,"_field")][1]'
-  );
-  const hasScope = (await scoped.count().catch(() => 0)) > 0;
-  const scope = hasScope ? scoped : null;
+  const optionActive = async (btn: ReturnType<Page["locator"]>): Promise<boolean> => {
+    const cls = ((await btn.getAttribute("class").catch(() => null)) ?? "").toLowerCase();
+    if (/(^|[_\s-])active([_\s-]|$)/.test(cls) || /selected|checked|pressed/.test(cls)) return true;
+    const pressed = await btn.getAttribute("aria-pressed").catch(() => null);
+    if (pressed === "true") return true;
+    return false;
+  };
 
   const tryClick = async (loc: ReturnType<Page["locator"]>): Promise<boolean> => {
     const n = await loc.count().catch(() => 0);
@@ -718,7 +756,36 @@ async function fillYesNoChoice(page: Page, field: DiscoveredField, answer: strin
     return true;
   };
 
+  /** Ashby: click the visible Yes/No button inside a field entry; verify `_active` when present. */
+  const tryAshbyYesNoButtons = async (root: ReturnType<Page["locator"]>): Promise<boolean> => {
+    const yesNoRoot = root.locator("[class*='yesno'], [class*='_yesno']").first();
+    const scope = (await yesNoRoot.count().catch(() => 0)) > 0 ? yesNoRoot : root;
+    const btn = scope.locator("button").filter({ hasText: wantRe });
+    if ((await btn.count().catch(() => 0)) === 0) return false;
+    await btn.first().scrollIntoViewIfNeeded().catch(() => {});
+    await btn.first().click({ force: true });
+    // Prefer class confirmation; fall back to success if no `_active` convention.
+    if (await optionActive(btn.first())) return true;
+    const siblingActive = await scope
+      .locator("button")
+      .evaluateAll(
+        (els, w) =>
+          els.some((el) => {
+            const t = (el.textContent || "").trim();
+            const cls = (el.className || "").toString().toLowerCase();
+            return new RegExp(`^${w}$`, "i").test(t) && /(^|[_\s-])active([_\s-]|$)/.test(cls);
+          }),
+        want
+      )
+      .catch(() => false);
+    if (siblingActive) return true;
+    // Buttons without an active class still often commit the choice on click.
+    return true;
+  };
+
   const tryIn = async (root: ReturnType<Page["locator"]>): Promise<boolean> => {
+    // Prefer Ashby / custom Yes–No buttons before touching hidden native inputs.
+    if (await tryAshbyYesNoButtons(root)) return true;
     if (await tryClick(root.getByRole("radio", { name: wantRe }))) return true;
     if (await tryClick(root.getByRole("checkbox", { name: wantRe }))) return true;
     if (await tryClick(root.locator("label").filter({ hasText: wantRe }))) return true;
@@ -734,14 +801,26 @@ async function fillYesNoChoice(page: Page, field: DiscoveredField, answer: strin
     return false;
   };
 
-  if (scope && (await tryIn(scope))) return true;
+  // 1) Scope to the question's field container, then click Yes/No control (buttons first)
+  const qSnippet = field.label.replace(/\s+/g, " ").trim().slice(0, 60);
+  const questionLoc = page.getByText(qSnippet, { exact: false }).first();
+  const scoped = questionLoc.locator(
+    'xpath=ancestor::*[contains(@class,"ashby-application-form-field-entry") or self::fieldset or @data-field-path or contains(@class,"field") or contains(@class,"Question") or contains(@class,"_field")][1]'
+  );
+  if ((await scoped.count().catch(() => 0)) > 0 && (await tryIn(scoped))) return true;
 
   // Scope from the discovered control itself (hidden native input → parent field)
   if (field.selector) {
     const fromControl = page.locator(field.selector).first().locator(
-      'xpath=ancestor::*[self::fieldset or @data-field-path or contains(@class,"field") or contains(@class,"Question")][1]'
+      'xpath=ancestor::*[contains(@class,"ashby-application-form-field-entry") or self::fieldset or @data-field-path or contains(@class,"field") or contains(@class,"Question") or contains(@class,"_field")][1]'
     );
     if ((await fromControl.count().catch(() => 0)) > 0 && (await tryIn(fromControl))) return true;
+  }
+
+  // 2) Native group via discovered selector (after button attempt — Ashby uses one checkbox + buttons)
+  if (field.type === "radio" || (field.type === "checkbox" && field.options && field.options.length > 1)) {
+    if (field.type === "radio" && (await fillRadioGroup(page, field, want))) return true;
+    if (field.type === "checkbox" && (await fillCheckboxGroup(page, field, [want]))) return true;
   }
 
   // 3) Single discovered checkbox: only check when answer is Yes (consent-style / affirmative-only UI)
@@ -766,7 +845,13 @@ async function fillFileField(page: Page, field: DiscoveredField, filePath: strin
 function isResumeField(label: string): boolean {
   const norm = normalizeLabel(label);
   if (!norm) return false;
+  // Never treat cover-letter controls as resume (Handshake upload near both sections).
+  if (/cover\s*letter/i.test(norm)) return false;
   return /resume|cv|curriculum/i.test(norm);
+}
+
+function isCoverLetterFileSelector(selector: string): boolean {
+  return /cover\s*letter/i.test(selector);
 }
 
 /** Visible copy that means the ATS is still parsing an uploaded resume. */
@@ -819,26 +904,56 @@ async function uploadResumeFirst(
   filledFields: string[],
   unfilledFields: UnfilledField[]
 ): Promise<boolean> {
-  let resumeFields = fields.filter((f) => f.type === "file" && isResumeField(f.label));
-  // Workable: unlabeled file input whose nearest text is Resume/CV (skip SVG/browser chrome inputs).
+  let resumeFields = fields.filter(
+    (f) =>
+      f.type === "file" &&
+      isResumeField(f.label) &&
+      !isCoverLetterField(f.label) &&
+      !isCoverLetterFileSelector(f.selector)
+  );
+
+  // Handshake Apply: profile resume often already attached; only cover-letter file input remains.
+  // Never fall back to uploading resume.pdf into that cover-letter input.
+  const handshakeResumeReady = await page.evaluate(() => {
+    const t = (document.body?.innerText ?? "").replace(/\s+/g, " ");
+    if (!/attach your resume/i.test(t)) return false;
+    if (!/preview document|resume version/i.test(t)) return false;
+    const files = [...document.querySelectorAll('input[type="file"]')] as HTMLInputElement[];
+    const hasResumeUpload = files.some((f) => /\bresume\b/i.test(`${f.name} ${f.id}`));
+    const coverOnly =
+      files.length > 0 && files.every((f) => /cover\s*letter/i.test(`${f.name} ${f.id}`));
+    return !hasResumeUpload && (coverOnly || /attach your cover letter/i.test(t));
+  });
+  if (handshakeResumeReady && resumeFields.length === 0) {
+    filledFields.push("Resume");
+    console.log("Handshake: profile resume already attached — skipping resume file upload");
+    return true;
+  }
+
+  // Workable: unlabeled file input whose nearest text is Resume/CV (never cover-letter inputs).
   if (resumeFields.length === 0) {
     const resumeSelector = await page.evaluate(() => {
       const inputs = [...document.querySelectorAll('input[type="file"]')] as HTMLInputElement[];
+      const isCover = (input: HTMLInputElement): boolean =>
+        /cover\s*letter/i.test(input.name || "") ||
+        /cover\s*letter/i.test(input.id || "") ||
+        /cover\s*letter/i.test(input.getAttribute("aria-label") || "");
+
       for (const input of inputs) {
+        if (isCover(input)) continue;
         const wrap = input.closest("div, section, li, fieldset, form") ?? input.parentElement;
         const text = (wrap?.textContent ?? "").replace(/\s+/g, " ");
         if (/svg|not supported by this browser/i.test(text) && !/resume|\bcv\b/i.test(text)) continue;
+        // Skip wraps that are the cover-letter block (may still mention "resume" higher up).
+        if (/attach your cover letter|cover letter/i.test(text) && !/attach your resume/i.test(text)) {
+          continue;
+        }
         if (/resume|\bcv\b|curriculum/i.test(text)) {
           if (input.id) return `#${CSS.escape(input.id)}`;
           if (input.name) return `input[type="file"][name="${CSS.escape(input.name)}"]`;
         }
       }
-      // Fallback: first file input not inside an SVG-warning block
-      for (const input of inputs) {
-        const text = (input.closest("div")?.textContent ?? "").replace(/\s+/g, " ");
-        if (/svg|not supported by this browser/i.test(text)) continue;
-        if (input.id) return `#${CSS.escape(input.id)}`;
-      }
+      // Do not fall back to "first file input" — that wrongly hits Handshake cover letter.
       return null;
     });
     if (resumeSelector) {
@@ -850,6 +965,7 @@ async function uploadResumeFirst(
   const resumePath = getResumePath(refs);
   let uploaded = false;
   for (const field of resumeFields) {
+    if (isCoverLetterField(field.label) || isCoverLetterFileSelector(field.selector)) continue;
     const ok = await fillFileField(page, field, resumePath);
     if (ok) {
       filledFields.push(field.label || "Resume");
@@ -1152,11 +1268,12 @@ export async function fillApplicationForm(
       continue;
     }
 
-    // Cover letter file upload → tailored PDF under data/fill/cover-letters/ (never the template)
+    // Cover letter file upload → tailored PDF under data/fill/cover-letters/ (never resume, never template)
     if (field.type === "file" && isCoverLetterField(field.label)) {
       let pdfPath = "";
       try {
         pdfPath = await prepareCoverLetterPdf(refs, ctx);
+        console.log(`Cover letter PDF → ${pdfPath}`);
       } catch (err) {
         unfilledFields.push({
           label: field.label,
@@ -1166,10 +1283,10 @@ export async function fillApplicationForm(
         });
         continue;
       }
-      if (/cover-letter-template/i.test(pdfPath)) {
+      if (/cover-letter-template/i.test(pdfPath) || /\/resume\.pdf$/i.test(pdfPath)) {
         unfilledFields.push({
           label: field.label,
-          suggestedAnswer: "refused to upload static cover-letter-template.pdf",
+          suggestedAnswer: "refused non-cover-letter PDF for cover letter field",
           reason: "file_missing",
           source: "cover-letter.md",
         });

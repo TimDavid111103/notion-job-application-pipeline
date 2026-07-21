@@ -18,15 +18,16 @@ URL health **defaults to HTTP** (`URL_HEALTH_MODE=http`) and does **not** need a
 
 `KEEP_BROWSER_OPEN` only works while the **Node fill process** is still running. Exiting (or killing) that process closes Chrome.
 
-**Principle:** during step 9 review, the fill shell must stay alive until the user finishes in the browser and answers AskQuestion. Jobs in one run open as **tabs in a single Chrome window** (shared browser context) — not separate windows.
+**Principle:** one fill Chrome window for the whole session. Every job opens as a **new tab in that window**. Never macOS `open` (Safari/default browser), never a second Chrome window for the next job.
 
 Agent rules:
 
-1. Run `HEADED=1 npm run fill:application` **in the background** (`block_until_ms: 0`) so a chat message does not interrupt/kill the shell.
+1. Put the full remaining batch in `fill-session.json` / the queue **before** starting fill. Run `HEADED=1 npm run fill:application` **once** in the background (`block_until_ms: 0`).
 2. Wait for `Pre-fill complete` / `Handoff wait` in the output, then read `data/fill/fill-results.json`.
 3. AskQuestion: Applied / Invalid / Feedback **while the browser is still open**.
-4. To release the wait without closing Chrome: write an empty file at `data/fill/handoff-continue` (or close the window / press Enter in that terminal).
+4. After Applied/Invalid: update Notion Status, then write `data/fill/handoff-continue` so the **same** fill process advances to the next queued job as another tab. Do **not** start a new `fill:application` while that process (or its Chrome) is still alive.
 5. Never interrupt the fill shell while the user is reviewing the form.
+6. If the fill process already exited but fill Chrome is still open, a new `fill:application` reuses that CDP window (tabs). Only force a fresh Chrome with `BROWSER_CDP_REUSE=0`.
 
 ## Prefer `node --import tsx` (already in package.json)
 

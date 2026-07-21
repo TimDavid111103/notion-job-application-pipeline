@@ -149,7 +149,7 @@ HEADED=1 npm run fill:application
 ```
 
 Before each job: MCP `update_database_entry` → Status `In Progress`.
-After **Applied** in chat: Status `Applied`, then next job.
+After **Applied** in chat: Status `Applied`, then write `handoff-continue` so the **same** fill process opens the next job as a tab (do not start a new `fill:application`).
 
 → [ats-form-filling.md](domain/ats-form-filling.md) · [human-in-the-loop.md](domain/human-in-the-loop.md)
 

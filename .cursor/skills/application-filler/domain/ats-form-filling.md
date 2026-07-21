@@ -17,7 +17,7 @@ reconnect and classify spam vs success. Requires Accessibility permission for Cu
 
 **Workable quirks:** dismiss cookie banners first; prefer `input.labels` for field titles (wrapping labels); unlabeled required file inputs next to “Resume” still upload; convert annual salary → monthly when the label says per month; skip website NPS widgets.
 
-**Yes/No (work auth, sponsorship, relocate):** map from `personal-information.md` via `matchYesNo`. Click the **Yes** or **No** control in that question’s field container (radio / checkbox / label) — never skip because the native input is visually hidden, and never click a page-wide “Yes” that belongs to another question.
+**Yes/No (work auth, sponsorship, relocate):** map from `personal-information.md` via `matchYesNo`. Click the **Yes** or **No** control in that question’s field container (visible option button, radio, checkbox, or label) — never skip because the native input is visually hidden, and never click a page-wide “Yes” that belongs to another question.
 
 ## Flow per job
 
@@ -40,7 +40,7 @@ reconnect and classify spam vs success. Requires Accessibility permission for Cu
 | `jobs.ashbyhq.com` | Link/button with `application` in href |
 | `myworkdayjobs.com` | Apply → prefer Autofill with Resume |
 | `jobs.workable.com` | Link/button "Apply" (after cookie accept) |
-| `joinhandshake.com` | **High-priority WIP** — not reliable yet; see Scope |
+| `joinhandshake.com` | Button `Apply` / `aria-label=Apply` → wait for Apply modal (`Apply to…` / Submit Application) |
 | Other | First button/link matching `/apply/i` |
 
 ## Submission
@@ -49,10 +49,10 @@ reconnect and classify spam vs success. Requires Accessibility permission for Cu
 
 ## Scope
 
-**Principle:** auto-fill only hosts whose Apply → form path is proven in headed runs. Everything else is manual-open + leave Status `In Progress`, then continue the session on the next proven host.
+**Principle:** auto-fill hosts whose Apply → form path is under active headed hardening. Prefer one Chrome window; every job is a new tab.
 
 **Proven in:** Greenhouse, Lever, Ashby, Workday (basic), Breezy/generic fallback.
 
-**High priority — Handshake:** enable in-app Handshake applications. Approach: iterate real Handshake postings in headed sessions (reuse `scripts/auth/login-handshake.ts` / `.auth`), map Apply → field discovery → resume → auto/AI-fill → chat handoff, and harden until Handshake matches Ashby/Greenhouse reliability. Until then: `open` the job URL, leave the row `In Progress`, move on.
+**High priority — Handshake:** in-app Apply modal (not external ATS). Observed on LDM (`jobs/11173247`): click **Apply** → modal with profile resume (often pre-attached — do **not** upload `resume.pdf` into the cover-letter file input), cover letter via generated PDF to `file-Cover Letter` / “Upload new”, **Submit Application**; may show school-year mismatch warnings. Iterate headed fills (reuse `.auth/handshake.json`) until discovery + cover-letter PDF + chat handoff match Ashby reliability. Probe helper: `scripts/fill/probe-handshake-apply.ts`.
 
 **Still out:** multi-page Workday wizards, account creation.
