@@ -764,6 +764,34 @@ export function isCoverLetterField(label: string): boolean {
   return /cover\s*letter/i.test(normalizeLabel(label));
 }
 
+/** Catch-all “anything else?” fields — fill with the relevant-experience seed. */
+export function isAdditionalInformationField(label: string): boolean {
+  const norm = normalizeLabel(label);
+  return (
+    /^(additional|other|extra)\s+(information|info|comments?|details?|notes?)$/i.test(norm) ||
+    /^anything else\b/i.test(norm) ||
+    /^is there anything else\b/i.test(norm)
+  );
+}
+
+/** Canonical answers.md question used for Additional Information aliases. */
+export const RELEVANT_EXPERIENCE_QUESTION = "Please tell us about your relevant experience.";
+
+/**
+ * Map form labels to the answers.md question used for retrieval / AI-fill.
+ * Additional Information → relevant experience; otherwise the label itself.
+ */
+export function canonicalOpenEndedQuestion(label: string): string {
+  if (isAdditionalInformationField(label)) return RELEVANT_EXPERIENCE_QUESTION;
+  return label;
+}
+
+/** True when answers.md ranks at least one seed for this form question (after aliases). */
+export function hasAnswersBasis(label: string, answers: AnswerExemplar[], minScore = 0.35): boolean {
+  const question = canonicalOpenEndedQuestion(label);
+  return rankAnswerExemplars(question, answers, 1, minScore).length > 0;
+}
+
 export function isOpenEndedField(label: string, type: string): boolean {
   if (type !== "textarea" && type !== "text") return false;
   const norm = normalizeLabel(label);
@@ -775,9 +803,11 @@ export function isOpenEndedField(label: string, type: string): boolean {
     return false;
   }
   return (
+    isAdditionalInformationField(norm) ||
     /describe|tell us|tell me|walk me|how have|how has|how do|what (are you|experience|methods)|why |explain|challenging|experience with|open.?ended|approach|integrat|give an example|looking for|ambiguity|tradeoff|0 to 1|from scratch|worked on a team/i.test(
       norm
-    ) || type === "textarea"
+    ) ||
+    type === "textarea"
   );
 }
 

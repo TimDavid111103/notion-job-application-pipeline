@@ -11,10 +11,11 @@ import {
   disconnectCdpBrowser,
   getCdpPort,
   launchBrowser,
+  openPage,
   reconnectCdpBrowser,
   type Aggregator,
 } from "../lib/browser/index.js";
-import type { Browser, Page } from "playwright";
+import type { Browser, BrowserContext, Page } from "playwright";
 import {
   detectSubmitOutcome,
   fillApplicationForm,
@@ -183,6 +184,7 @@ async function probeAutoSubmit(
       }
       pageCache.clear();
       pageCache.set(aggregatorForUrl(itemJobUrl) ?? "public", rePage);
+      // Keep shared-window semantics after CDP reconnect.
       return { browser: reBrowser, submit };
     } catch (err) {
       submit = {
@@ -230,14 +232,20 @@ async function main(): Promise<void> {
     stealFocus: true,
   });
   const results: FillResultItem[] = [];
+  /** Latest page per aggregator — for auto-submit reconnect only; each job still gets its own tab. */
   const pageCache = new Map<Aggregator | "public", Page>();
+  let sharedContext: BrowserContext | null = null;
 
   const getPage = async (aggregator: Aggregator | undefined): Promise<Page> => {
     const key = aggregator ?? "public";
-    const cached = pageCache.get(key);
-    if (cached) return cached;
-    const context = await createContext(browser, aggregator, true);
-    const page = await context.newPage();
+    // Always reuse browser.contexts()[0] so jobs open as tabs in one window.
+    sharedContext = await createContext(browser, aggregator, true);
+    const page = await openPage(sharedContext);
+    for (const p of sharedContext.pages()) {
+      if (p !== page && (p.url() === "about:blank" || p.url() === "")) {
+        await p.close().catch(() => {});
+      }
+    }
     pageCache.set(key, page);
     return page;
   };

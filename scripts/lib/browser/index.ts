@@ -396,8 +396,9 @@ export async function createContext(
   const stateFile = aggregator ? authPath(aggregator) : undefined;
   const storageState = stateFile && existsSync(stateFile) ? stateFile : undefined;
 
+  // Always reuse the first context so each job is a new tab in one window — never a second window.
   const existing = browser.contexts()[0];
-  if (existing && cdpChromeProc) {
+  if (existing) {
     await applyStealthInitScripts(existing);
     try {
       await existing.grantPermissions(["clipboard-read", "clipboard-write"]);

@@ -18,7 +18,7 @@ URL health **defaults to HTTP** (`URL_HEALTH_MODE=http`) and does **not** need a
 
 `KEEP_BROWSER_OPEN` only works while the **Node fill process** is still running. Exiting (or killing) that process closes Chrome.
 
-**Principle:** during step 9 review, the fill shell must stay alive until the user finishes in the browser and answers AskQuestion.
+**Principle:** during step 9 review, the fill shell must stay alive until the user finishes in the browser and answers AskQuestion. Jobs in one run open as **tabs in a single Chrome window** (shared browser context) — not separate windows.
 
 Agent rules:
 

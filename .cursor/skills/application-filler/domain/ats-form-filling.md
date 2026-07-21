@@ -20,12 +20,12 @@ reconnect and classify spam vs success. Requires Accessibility permission for Cu
 ## Flow per job
 
 1. Navigate to Job URL; **dismiss cookie banners** (`Accept all cookies` / `Accept all` / etc.); click Apply (host-specific table below)
-2. Prep AI-fill: `data/fill/ai-answers.json` from page JD + assets, or live LLM via API keys
+2. Prep AI-fill: `data/fill/ai-answers.json` from page JD + assets **only for questions with an `answers.md` seed hit**; Additional Information → relevant-experience answer; leave the rest blank. Optional live LLM via API keys (same gate).
 3. Discover fields (group questions for radios/checkboxes; `label[for]` / `data-field-path` when `id`/`name` missing)
 4. Upload resume; wait for processing UI to settle
 5. Strip ATS work-experience rows (Delete controls + clear leftover company/title/summary); fill education dates when present
 6. Re-discover; auto-fill text / selects / multi-selects / consent / EEO / skills (overwrite ATS)
-7. AI-fill open-ended textareas — rank closest `answers.md` seeds by theme/question, adapt to JD; never paste raw seeds alone
+7. AI-fill open-ended textareas — only when `answers.md` ranks a seed; Additional Information uses relevant experience; never invent for unmatched questions
 8. Cover letter: `cover-letter.md` (textarea) or `cover-letter-template.pdf` (file)
 9. Chat handoff — AskQuestion: Applied / Invalid / Feedback (`AUTO_PAUSE` off)
 
@@ -38,6 +38,7 @@ reconnect and classify spam vs success. Requires Accessibility permission for Cu
 | `jobs.ashbyhq.com` | Link/button with `application` in href |
 | `myworkdayjobs.com` | Apply → prefer Autofill with Resume |
 | `jobs.workable.com` | Link/button "Apply" (after cookie accept) |
+| `joinhandshake.com` | **High-priority WIP** — not reliable yet; see Scope |
 | Other | First button/link matching `/apply/i` |
 
 ## Submission
@@ -46,5 +47,10 @@ reconnect and classify spam vs success. Requires Accessibility permission for Cu
 
 ## Scope
 
-**In:** Greenhouse, Lever, Ashby, Workday (basic), Breezy/generic fallback.  
-**Out:** Handshake in-app apply, multi-page Workday wizards, account creation.
+**Principle:** auto-fill only hosts whose Apply → form path is proven in headed runs. Everything else is manual-open + leave Status `In Progress`, then continue the session on the next proven host.
+
+**Proven in:** Greenhouse, Lever, Ashby, Workday (basic), Breezy/generic fallback.
+
+**High priority — Handshake:** enable in-app Handshake applications. Approach: iterate real Handshake postings in headed sessions (reuse `scripts/auth/login-handshake.ts` / `.auth`), map Apply → field discovery → resume → auto/AI-fill → chat handoff, and harden until Handshake matches Ashby/Greenhouse reliability. Until then: `open` the job URL, leave the row `In Progress`, move on.
+
+**Still out:** multi-page Workday wizards, account creation.

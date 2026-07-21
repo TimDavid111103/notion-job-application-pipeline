@@ -5,11 +5,21 @@
  * 1. data/fill/ai-answers.json — written by the agent (or an LLM prep step) per job
  * 2. ANTHROPIC_API_KEY / OPENAI_API_KEY — live generation when set
  * 3. null — caller should leave blank / hand off (never paste a raw answers.md exemplar alone)
+ *
+ * Gate: only fill when answers.md ranks a seed for the question (after aliases).
+ * Additional Information → "Please tell us about your relevant experience."
+ * No answers.md basis → leave blank (do not invent via LLM or ai-answers.json).
  */
 import { existsSync, readFileSync } from "node:fs";
 import { AI_ANSWERS_FILE } from "../paths.js";
 import type { FillContext, FillReferences, ProjectEntry } from "./fill-references.js";
-import { interpolate, normalizeLabel, rankAnswerExemplars } from "./fill-references.js";
+import {
+  canonicalOpenEndedQuestion,
+  hasAnswersBasis,
+  interpolate,
+  normalizeLabel,
+  rankAnswerExemplars,
+} from "./fill-references.js";
 
 export interface AiAnswersFile {
   page_id?: string;
@@ -55,8 +65,9 @@ function buildPrompt(
   ctx: FillContext & { jobDescription?: string },
   refs: FillReferences
 ): string {
+  const question = canonicalOpenEndedQuestion(label);
   // Rank by question/theme overlap — answers.md themes are retrieval keys, not prompt order.
-  const ranked = rankAnswerExemplars(label, refs.answers, 4, 0.35);
+  const ranked = rankAnswerExemplars(question, refs.answers, 4, 0.35);
   const exemplars = ranked
     .map((a) => `[${a.theme}]\nQ: ${a.question}\nA: ${a.answer}`)
     .join("\n\n");
@@ -71,7 +82,7 @@ function buildPrompt(
     `Adapt tone and emphasis to the role; do not paste a seed verbatim when the form question differs.`,
     `Do not invent employers or degrees. Do not use placeholder brackets.`,
     ``,
-    `FORM QUESTION: ${label}`,
+    `FORM QUESTION: ${question}`,
     ``,
     `JOB DESCRIPTION (excerpt):`,
     (ctx.jobDescription ?? "").slice(0, 4000) || "(not provided)",
@@ -130,17 +141,26 @@ async function callOpenAi(prompt: string): Promise<string | null> {
 }
 
 /**
- * Resolve an AI-fill answer. Never returns a raw unmatched exemplar paste without JD context
- * unless it came from ai-answers.json or a live LLM call.
+ * Resolve an AI-fill answer. Requires an answers.md retrieval hit (after aliases).
+ * Never invents answers for questions with no seed basis.
+ * Additional Information always resolves as the relevant-experience answer.
  */
 export async function resolveAiFill(
   label: string,
   refs: FillReferences,
   ctx: FillContext & { jobDescription?: string },
   pageId?: string
-): Promise<{ value: string; source: "ai-answers.json" | "llm" } | null> {
+): Promise<{ value: string; source: "ai-answers.json" | "llm" | "answers.md" } | null> {
+  if (!hasAnswersBasis(label, refs.answers)) {
+    return null;
+  }
+
+  const question = canonicalOpenEndedQuestion(label);
   const file = loadAiAnswersFile(pageId);
-  const fromFile = lookupAiAnswer(label, file);
+  // Additional Information: only the relevant-experience key/seed — never a thinner catch-all entry.
+  const fromFile =
+    lookupAiAnswer(question, file) ??
+    (question === label ? lookupAiAnswer(label, file) : null);
   if (fromFile) {
     return { value: interpolate(fromFile, ctx), source: "ai-answers.json" };
   }
@@ -148,6 +168,15 @@ export async function resolveAiFill(
   const prompt = buildPrompt(label, ctx, refs);
   const fromLlm = (await callAnthropic(prompt)) ?? (await callOpenAi(prompt));
   if (fromLlm) return { value: fromLlm, source: "llm" };
+
+  // Additional Information (and aliases): default to the relevant-experience seed.
+  if (question !== label) {
+    const ranked = rankAnswerExemplars(question, refs.answers, 1, 0.35);
+    const seed = ranked[0]?.answer;
+    if (seed) {
+      return { value: interpolate(seed, ctx), source: "answers.md" };
+    }
+  }
 
   return null;
 }

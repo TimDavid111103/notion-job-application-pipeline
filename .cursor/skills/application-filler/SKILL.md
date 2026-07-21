@@ -138,7 +138,7 @@ call MCP `delete_database_entry`.
 
 ## 9. Fill applications (headed)
 
-Opens a visible browser, pre-fills fields, leaves the tab open. **Handoff is in chat** — use AskQuestion (multiple choice): Applied / Invalid / Feedback. Do **not** use Playwright inspector (`AUTO_PAUSE` is off by default).
+Opens a visible browser, pre-fills fields, leaves the tab open. Further jobs in the same run open as additional tabs in that window. **Handoff is in chat** — use AskQuestion (multiple choice): Applied / Invalid / Feedback. Do **not** use Playwright inspector (`AUTO_PAUSE` is off by default).
 
 **Must run outside the Cursor sandbox** (`required_permissions: ["all"]`). **Background the fill process** so chat does not kill Chrome — see [protocol/agent-runtime.md](protocol/agent-runtime.md).
 
