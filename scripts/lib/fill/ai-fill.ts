@@ -8,8 +8,8 @@
  */
 import { existsSync, readFileSync } from "node:fs";
 import { AI_ANSWERS_FILE } from "../paths.js";
-import type { AnswerExemplar, FillContext, FillReferences, ProjectEntry } from "./fill-references.js";
-import { interpolate, normalizeLabel } from "./fill-references.js";
+import type { FillContext, FillReferences, ProjectEntry } from "./fill-references.js";
+import { interpolate, normalizeLabel, rankAnswerExemplars } from "./fill-references.js";
 
 export interface AiAnswersFile {
   page_id?: string;
@@ -55,9 +55,10 @@ function buildPrompt(
   ctx: FillContext & { jobDescription?: string },
   refs: FillReferences
 ): string {
-  const exemplars = refs.answers
-    .slice(0, 8)
-    .map((a: AnswerExemplar) => `Q: ${a.question}\nA: ${a.answer}`)
+  // Rank by question/theme overlap — answers.md themes are retrieval keys, not prompt order.
+  const ranked = rankAnswerExemplars(label, refs.answers, 4, 0.35);
+  const exemplars = ranked
+    .map((a) => `[${a.theme}]\nQ: ${a.question}\nA: ${a.answer}`)
     .join("\n\n");
   const project = refs.projects[0] as ProjectEntry | undefined;
   const projectBlurb = project
@@ -66,7 +67,8 @@ function buildPrompt(
   return [
     `You are helping fill a job application for ${ctx.role} at ${ctx.company}.`,
     `Write a concise, specific answer (1–3 short paragraphs) to this form question.`,
-    `Ground the answer in the applicant's exemplars and projects below, and tailor it to the job description.`,
+    `Ground the answer in the closest answer seeds and projects below, and tailor it to the job description.`,
+    `Adapt tone and emphasis to the role; do not paste a seed verbatim when the form question differs.`,
     `Do not invent employers or degrees. Do not use placeholder brackets.`,
     ``,
     `FORM QUESTION: ${label}`,
@@ -74,7 +76,7 @@ function buildPrompt(
     `JOB DESCRIPTION (excerpt):`,
     (ctx.jobDescription ?? "").slice(0, 4000) || "(not provided)",
     ``,
-    `ANSWER EXEMPLARS:`,
+    `ANSWER SEEDS (closest matches):`,
     exemplars || "(none)",
     ``,
     `PROJECT NOTES:`,

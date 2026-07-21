@@ -25,7 +25,7 @@ reconnect and classify spam vs success. Requires Accessibility permission for Cu
 4. Upload resume; wait for processing UI to settle
 5. Strip ATS work-experience rows (Delete controls + clear leftover company/title/summary); fill education dates when present
 6. Re-discover; auto-fill text / selects / multi-selects / consent / EEO / skills (overwrite ATS)
-7. AI-fill open-ended textareas — never paste raw `answers.md` exemplars alone
+7. AI-fill open-ended textareas — rank closest `answers.md` seeds by theme/question, adapt to JD; never paste raw seeds alone
 8. Cover letter: `cover-letter.md` (textarea) or `cover-letter-template.pdf` (file)
 9. Chat handoff — AskQuestion: Applied / Invalid / Feedback (`AUTO_PAUSE` off)
 

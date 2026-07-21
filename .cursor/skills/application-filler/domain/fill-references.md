@@ -24,12 +24,18 @@ AI-fill must run for every open-ended field. Prefer writing `data/fill/ai-answer
 |------|------|
 | `assets/personal-information.md` | Identity, contact, auth, EEO, logistics, salary numbers, school dates |
 | `assets/skills-profile.md` | Years band, proficiency default, skills, tech stacks, outside-scope |
-| `assets/answers.md` | Screening Q&A exemplars (**seed for AI-fill only**) |
+| `assets/answers.md` | Screening Q&A seeds by theme (**AI-fill only** — never paste raw) |
 | `assets/projects.md` | Portfolio write-ups (**seed for AI-fill**) |
 | `assets/cover-letter.md` | Cover letter text template (PDF twin: `documents/cover-letter-template.pdf`) |
 | `assets/documents/resume.pdf` | Resume file upload (required) |
 
 Live PII copies are gitignored; schema template: `assets/personal-information.template.md`.
+
+## `answers.md` retrieval
+
+Themes in `answers.md` are **retrieval keys**, not a fixed prompt order. For each form label the engine ranks seeds by question + theme overlap (`rankAnswerExemplars`), prefers distinct themes, and feeds the closest matches into AI-fill.
+
+When writing `data/fill/ai-answers.json` by hand, map each open-ended form field to the closest theme in `answers.md`, adapt the seed to `{company}` / `{role}` / the Notion JD, and write the tailored text under that field’s label — do not copy a seed verbatim when the form question differs.
 
 ## Lookup order
 

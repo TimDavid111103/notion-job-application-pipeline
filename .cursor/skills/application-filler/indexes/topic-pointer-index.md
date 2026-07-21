@@ -13,6 +13,7 @@ Quick lookup — each topic has one canonical document.
 | Data formats | [contracts/data-formats.md](../contracts/data-formats.md) |
 | Run logs | [contracts/run-log-template.md](../contracts/run-log-template.md) |
 | Fill references (auto-fill vs AI-fill) | [domain/fill-references.md](../domain/fill-references.md) |
+| Screening answer seeds | [assets/answers.md](../assets/answers.md) |
 | Cover letter | [assets/cover-letter.md](../assets/cover-letter.md) |
 | Skills / tech profile | [assets/skills-profile.md](../assets/skills-profile.md) |
 | ATS filling | [domain/ats-form-filling.md](../domain/ats-form-filling.md) |

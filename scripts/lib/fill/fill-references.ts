@@ -375,19 +375,61 @@ function fuzzyScore(a: string, b: string): number {
   if (na === nb) return 1;
   if (na.includes(nb) || nb.includes(na)) return 0.8;
   const aWords = new Set(na.split(/\s+/).filter((w) => w.length > 2));
-  const bWords = nb.split(/\s+/).filter((w) => w.length > 2 && aWords.has(w));
-  return bWords.length / Math.max(aWords.size, 1);
+  const bWords = new Set(nb.split(/\s+/).filter((w) => w.length > 2));
+  if (aWords.size === 0 || bWords.size === 0) return 0;
+  let hit = 0;
+  for (const w of aWords) if (bWords.has(w)) hit++;
+  return hit / aWords.size;
+}
+
+/** Score an exemplar against a form label using question match + theme keywords. */
+export function scoreAnswerExemplar(label: string, ex: AnswerExemplar): number {
+  const qScore = fuzzyScore(label, ex.question);
+  const themeScore = fuzzyScore(label, ex.theme) * 0.55;
+  // Light boost when theme tokens appear in the label (e.g. "evaluation", "ambiguity").
+  const themeBoost = tokenOverlap(label, ex.theme) * 0.25;
+  return Math.max(qScore, themeScore) + themeBoost;
+}
+
+/**
+ * Rank answer seeds for a form question. Used by AI-fill prompts and lookup.
+ * Prefer closest Q&A pairs over file order; diversify themes so the prompt
+ * gets distinct angles instead of near-duplicates from one section.
+ */
+export function rankAnswerExemplars(
+  label: string,
+  answers: AnswerExemplar[],
+  limit = 4,
+  minScore = 0.25
+): AnswerExemplar[] {
+  const scored = answers
+    .map((ex) => ({ ex, score: scoreAnswerExemplar(label, ex) }))
+    .filter((r) => r.score >= minScore)
+    .sort((a, b) => b.score - a.score);
+
+  const picked: AnswerExemplar[] = [];
+  const seenThemes = new Set<string>();
+  // Pass 1: best hit per theme
+  for (const r of scored) {
+    if (picked.length >= limit) break;
+    if (seenThemes.has(r.ex.theme)) continue;
+    seenThemes.add(r.ex.theme);
+    picked.push(r.ex);
+  }
+  // Pass 2: fill remaining slots with next-best (same theme ok)
+  if (picked.length < limit) {
+    for (const r of scored) {
+      if (picked.length >= limit) break;
+      if (picked.includes(r.ex)) continue;
+      picked.push(r.ex);
+    }
+  }
+  return picked;
 }
 
 function matchAnswer(label: string, answers: AnswerExemplar[], minScore = 0.4): string | null {
-  let best: { score: number; answer: string } | null = null;
-  for (const ex of answers) {
-    const score = fuzzyScore(label, ex.question);
-    if (score >= minScore && (!best || score > best.score)) {
-      best = { score, answer: ex.answer };
-    }
-  }
-  return best?.answer ?? null;
+  const ranked = rankAnswerExemplars(label, answers, 1, minScore);
+  return ranked[0]?.answer ?? null;
 }
 
 function tokenOverlap(a: string, b: string): number {
@@ -733,7 +775,7 @@ export function isOpenEndedField(label: string, type: string): boolean {
     return false;
   }
   return (
-    /describe|tell us|tell me|walk me|how have|how do|what (experience|methods)|why |explain|challenging|experience with|open.?ended|approach|integrat/i.test(
+    /describe|tell us|tell me|walk me|how have|how has|how do|what (are you|experience|methods)|why |explain|challenging|experience with|open.?ended|approach|integrat|give an example|looking for|ambiguity|tradeoff|0 to 1|from scratch|worked on a team/i.test(
       norm
     ) || type === "textarea"
   );

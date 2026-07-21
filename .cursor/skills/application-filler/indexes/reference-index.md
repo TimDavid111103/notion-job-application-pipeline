@@ -42,7 +42,7 @@
 | [personal-information.md](../assets/personal-information.md) | Live standard form values |
 | [personal-information.template.md](../assets/personal-information.template.md) | Versioned schema template |
 | [projects.md](../assets/projects.md) | Project write-ups |
-| [answers.md](../assets/answers.md) | Screening-answer exemplars (AI-fill seed) |
+| [answers.md](../assets/answers.md) | Themed screening Q&A seeds (AI-fill retrieval) |
 | [cover-letter.md](../assets/cover-letter.md) | Cover letter text template |
 | [skills-profile.md](../assets/skills-profile.md) | Experience defaults + tech/skills for selects |
 | [documents/resume.pdf](../assets/documents/resume.pdf) | Required resume upload |
