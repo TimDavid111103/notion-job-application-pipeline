@@ -81,6 +81,8 @@ Read `data/scrape/scrape-results.json`. For each element in `items` with `"statu
 ```
 
 Call `append_content` per row. Batch manually if needed; there is no batch append tool.
+Skip rows that still need a headed retry (captcha / interstitial) — see
+[protocol/agent-runtime.md](../protocol/agent-runtime.md).
 
 ## Step 8 — Delete dead URLs
 

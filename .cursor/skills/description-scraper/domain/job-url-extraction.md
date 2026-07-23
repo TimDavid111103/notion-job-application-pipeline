@@ -83,7 +83,7 @@ hosts:
 | `dns_failure` | `ERR_NAME_NOT_RESOLVED`, connection refused | Yes |
 | `posting_closed` | Body matches closed/filled patterns | Yes |
 | `login_required` | Sign-in / log-in prompts in first 1500 chars without public job content — see [url-health-policy.md](../../../../docs/shared/url-health-policy.md) | **No** |
-| `captcha` | captcha / verify-human text | **No** |
+| `captcha` | captcha / verify-human / security-verification / not-a-bot interstitial text | **No** |
 | `empty_content` | Extracted text < 200 chars | Yes |
 | `non_english` | Description fails `isEnglishDescription()` | Yes |
 | `timeout` | Navigation timeout | Yes |
@@ -99,14 +99,17 @@ row intact so a missing session never deletes a valid posting. Delete policy:
 Handshake postings (`app.joinhandshake.com`) sit behind login. The scraper reuses the
 `.auth/handshake.json` session created by `scripts/auth/login-handshake.ts`
 (`npm run auth:handshake`) — `aggregatorForUrl()` in `scripts/lib/browser/` routes
-Handshake URLs to that session while all other ATS hosts scrape without auth. If
-Handshake rows come back `login_required`, refresh the session and re-run; the rows
-are preserved (not deleted) for the retry.
+Handshake URLs to that session while all other ATS hosts scrape without auth. Rows that
+fail headless (`captcha`, `login_required`, Cloudflare interstitial) are preserved and
+must be re-queued with `HEADED=1` before append — see
+[protocol/agent-runtime.md](../protocol/agent-runtime.md). If headed still returns
+`login_required`, refresh the session and retry.
 
-## Debug
+## Debug / headed retry
 
 ```bash
+HEADED=1 npm run scrape:descriptions
 HEADED=1 SCRAPE_LIMIT=3 npm run scrape:descriptions
 ```
 
-Visible browser helps diagnose login walls and selector misses.
+Headed is the required fallback when headless fails; it also helps diagnose selectors.

@@ -16,7 +16,15 @@ const LOGIN_PATTERNS = [
   /authentication\s+required/i,
 ];
 
-const CAPTCHA_PATTERNS = [/captcha/i, /verify\s+you(?:'re| are)\s+human/i, /recaptcha/i];
+const CAPTCHA_PATTERNS = [
+  /captcha/i,
+  /verify\s+you(?:'re| are)\s+human/i,
+  /recaptcha/i,
+  /security\s+verification/i,
+  /not\s+a\s+bot/i,
+  /waiting\s+for\s+[\w.-]+\s+to\s+respond/i,
+  /performing\s+security\s+verification/i,
+];
 
 const CLOSED_PATTERNS = [
   /no longer (?:available|accepting)/i,

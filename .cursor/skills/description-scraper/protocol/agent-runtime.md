@@ -10,7 +10,17 @@ Run Playwright through repository npm scripts from the repo root, not browser MC
 required_permissions: ["all"]
 ```
 
-Set `HEADED=1` only to diagnose selectors, login walls, or extraction failures. Handshake authentication is owned by `scripts/auth/`; the scraper reads `.auth/handshake.json`. Refresh it with `npm run auth:handshake` when needed.
+Handshake authentication is owned by `scripts/auth/`; the scraper reads `.auth/handshake.json`. Refresh it with `npm run auth:handshake` when needed.
+
+## Headed fallback (required)
+
+Default to headless. If headless fails for a URL — `captcha`, `login_required`, bot-interstitial text misclassified as `ok`, or empty extraction on an authenticated host — **do not append those rows**. Rebuild the queue to only the failed URLs and re-run immediately:
+
+```bash
+HEADED=1 npm run scrape:descriptions
+```
+
+Use headed for the retry, not as a one-off debug toggle. Append only after the headed pass succeeds (or after a fresh `auth:handshake` if headed still returns `login_required`).
 
 ## Execution
 

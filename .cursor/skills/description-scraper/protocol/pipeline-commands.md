@@ -16,9 +16,13 @@ npm run scrape:descriptions       # step 5 — Playwright scrape from queue
 npm run run-log:basename:scraper  # step 10 — run log path
 ```
 
-## Debug
+## Headed fallback / debug
+
+When headless returns `captcha` / `login_required` / interstitial junk, re-queue those
+URLs and re-run headed (required — not optional debug):
 
 ```bash
+HEADED=1 npm run scrape:descriptions
 HEADED=1 SCRAPE_LIMIT=3 npm run scrape:descriptions
 SCRAPE_TIMEOUT_MS=60000 npm run scrape:descriptions
 ```

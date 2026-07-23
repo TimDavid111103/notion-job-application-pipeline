@@ -101,6 +101,10 @@ Visit each Job URL in the queue and extract posting text.
 npm run scrape:descriptions
 ```
 
+If headless fails (`captcha`, `login_required`, interstitial junk, authenticated-host empty),
+rebuild the queue to those URLs and re-run with `HEADED=1` before appending — see
+[protocol/agent-runtime.md](protocol/agent-runtime.md).
+
 → [job-url-extraction.md](domain/job-url-extraction.md)
 
 ---
@@ -109,7 +113,7 @@ npm run scrape:descriptions
 
 Report **queued**, **ok**, **broken**, and **deletable** counts from
 `data/scrape/scrape-results.json` → `summary`. Spot-check one `ok` row in `items` for sensible
-content length and markdown structure.
+content length and markdown structure (reject bot-interstitial text).
 
 → [contracts/data-formats.md](contracts/data-formats.md) — results file
 
@@ -117,7 +121,8 @@ content length and markdown structure.
 
 ## 7. Append via MCP
 
-For each `status: "ok"` row, call MCP `append_content` with the prepared markdown.
+For each verified `status: "ok"` row, call MCP `append_content` with the prepared markdown.
+Do not append rows that still need a headed retry.
 
 → [notion/mcp-workflows.md](notion/mcp-workflows.md) — append workflow
 
