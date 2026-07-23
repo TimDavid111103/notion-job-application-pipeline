@@ -95,12 +95,11 @@ Read `data/scrape/scrape-results.json`. For each element in `items` with `"statu
 
 Call `delete_database_entry`. Use `dry_run: true` during development.
 
-**Only delete `deletable: true` rows.** Deletable failures mean the posting is
-genuinely gone or unusable: `404`, `dns_failure`, `posting_closed`, `empty_content`,
-`non_english`, `timeout`, `navigation_error`, `missing_url`. Transient/auth failures
-(`login_required`, `captcha`) are `deletable: false` — leave those rows in the tracker
-and re-run after refreshing the relevant session (e.g. `npm run auth:handshake`).
-Implementation: `isDeletableFailure()` in `scripts/lib/scrape/job-description.ts`.
+**Only delete `deletable: true` rows.** Policy (deletable vs preserve):
+[docs/shared/url-health-policy.md](../../../../docs/shared/url-health-policy.md).
+Implementation: `isDeletableFailure()` in `scripts/lib/url-health.ts`.
+Re-run after refreshing the relevant session when failures are non-deletable
+(e.g. `npm run auth:handshake`).
 
 ## Tool reference
 

@@ -43,7 +43,7 @@ Canonical path and fail-fast rules: [domain/fill-references.md](../domain/fill-r
 
 ## Playwright env bootstrap
 
-`scripts/lib/browser/playwright-env.ts` (imported by `browser.ts`) sets:
+`scripts/lib/browser/playwright-env.ts` (imported by `scripts/lib/browser/index.ts`) sets:
 
 | Variable | Purpose |
 |----------|---------|

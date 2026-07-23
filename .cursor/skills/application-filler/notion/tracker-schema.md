@@ -1,9 +1,8 @@
 # Notion Tracker Schema (Fill Skill)
 
-Canonical IDs and shared tracker documentation: [docs/shared/notion-tracker.md](../../../../docs/shared/notion-tracker.md). Code constants live in `scripts/lib/notion/`.
+Canonical IDs and shared tracker documentation: [docs/shared/notion-tracker.md](../../../../docs/shared/notion-tracker.md). Code constants: `scripts/lib/notion/`.
 
-Single source of truth for Application Tracker properties used by this skill.
-Constants: `scripts/lib/notion/`.
+Skill-scoped eligibility and Status/Job Match rules for the fill lane:
 
 ## Database IDs
 

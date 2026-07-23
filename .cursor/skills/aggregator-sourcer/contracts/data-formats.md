@@ -50,28 +50,12 @@ from `parseScratchFile`, **unique jobs** from `dedupeJobList()` (same keys as
 
 ## Runtime artifacts (`data/source/`, gitignored)
 
-Paths: `scripts/lib/paths.ts`. Cleanup: `npm run cleanup:data` (`scripts/lib/cleanup.ts`).
-
-**Permanent (never delete):**
-
-| File | Written by | Purpose |
-|---|---|---|
-| `data/sourced-jobs.md` | `appendJobs` | Scratch + sourcing dedup keys |
-| `data/.gitkeep` | setup | Keeps `data/` in git |
-
-**Temporary (delete everything else):**
+Paths: `scripts/lib/paths.ts`. Keep vs delete: [docs/shared/data-cleanup.md](../../../../docs/shared/data-cleanup.md).
 
 | Path | Written by | Purpose |
 |---|---|---|
 | `data/source/notion-tracker-snapshot.json` | MCP `query_database` | Tracker history for failsafe dedup |
 | `data/source/notion-payloads.json` | `log:notion:deduped` | MCP insert batch |
-| `mcp-*` files/dirs, queues, `*.scratch.md`, `*-temp.md`, `*-staging.json`, etc. | agent / debug / other skills | One-off dumps — not scratch |
 
-**Cleanup — mandatory twice per run:**
-
-1. **Step 5 (before logging)** — clear all temps before Notion snapshot/payloads.
-2. **Step 9 (after logging)** — clear all temps after MCP insert.
-
-`npm run cleanup:data` deletes temporary artifacts while preserving
-`data/sourced-jobs.md` and `data/.gitkeep`.
-Do not leave snapshot, payloads, or MCP helper files behind.
+**Cleanup timing (this skill):** step 5 before logging, step 9 after MCP insert — both via
+`npm run cleanup:data`. Do not leave snapshot or payload files behind.

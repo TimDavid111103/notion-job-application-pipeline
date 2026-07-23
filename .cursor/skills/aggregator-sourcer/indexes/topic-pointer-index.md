@@ -9,8 +9,9 @@ Quick lookup — each topic has one canonical document.
 | Scripts | [protocol/repository-scripts-map.md](../protocol/repository-scripts-map.md) |
 | Environment | [protocol/environment-variables.md](../protocol/environment-variables.md) |
 | Tracker schema / eligibility | [notion/tracker-schema.md](../notion/tracker-schema.md) |
+| Shared Notion tracker | [docs/shared/notion-tracker.md](../../../../docs/shared/notion-tracker.md) |
 | Snapshot / dedup / insert | [notion/mcp-workflows.md](../notion/mcp-workflows.md) |
-| Source data formats / cleanup | [contracts/data-formats.md](../contracts/data-formats.md) |
+| Source data formats | [contracts/data-formats.md](../contracts/data-formats.md) |
 | Run logs | [contracts/run-log-template.md](../contracts/run-log-template.md) |
 | Aggregator behavior | [domain/aggregator-sourcing-spec.md](../domain/aggregator-sourcing-spec.md) |
 | Auth and selectors | [domain/auth-and-selectors.md](../domain/auth-and-selectors.md) |

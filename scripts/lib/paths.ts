@@ -58,6 +58,3 @@ export const COVER_LETTER_TEMPLATE_FILE = path.join(
 );
 /** Tailored cover-letter PDFs written at fill time (temporary — cleaned with data/). */
 export const COVER_LETTERS_DIR = path.join(DATA_DIR, "fill", "cover-letters");
-
-/** @deprecated Use FILL_ASSETS_DIR */
-export const FILL_REFERENCES_DIR = FILL_ASSETS_DIR;

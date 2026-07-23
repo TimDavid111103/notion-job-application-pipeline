@@ -1,9 +1,8 @@
 # Notion Tracker Schema
 
-Canonical IDs and shared tracker documentation: [docs/shared/notion-tracker.md](../../../../docs/shared/notion-tracker.md). Code constants live in `scripts/lib/notion/`.
+Canonical IDs and shared tracker documentation: [docs/shared/notion-tracker.md](../../../../docs/shared/notion-tracker.md). Code constants: `scripts/lib/notion/`.
 
-Single source of truth for Application Tracker properties used by this skill.
-Constants: `scripts/lib/notion/`.
+Skill-scoped eligibility and Job Match rules for the scrape lane:
 
 ## Database IDs
 
@@ -26,7 +25,7 @@ Constants: `scripts/lib/notion/`.
 
 ### Job Match
 
-- **Property name:** `Job Match` (`JOB_MATCH_PROPERTY` in `notion.ts`)
+- **Property name:** `Job Match` (`JOB_MATCH_PROPERTY` in `scripts/lib/notion/constants.ts`)
 - **Type:** `select`
 - **Options:** `High`, `Medium`, `Low`
 - **Eligible for scraping:** property is **empty** (no option selected)

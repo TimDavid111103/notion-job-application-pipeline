@@ -30,13 +30,12 @@ npm run source:jack-empty   # Jack inbox + Saved clean-out
 ## Logging pipeline
 
 ```bash
-npm run cleanup:data               # step 5 & 9 — wipe all temp data/ (keep sourced-jobs.md)
+npm run cleanup:data               # step 5 & 9 — required; policy: docs/shared/data-cleanup.md
 npm run log:notion:deduped         # scratch + snapshot → payloads
 npm run run-log:basename           # step 11 — run log filename
 ```
 
-`cleanup:data` removes **every** file and directory under `data/` except `sourced-jobs.md`
-and `.gitkeep`. Run it at step 5 (before logging) and again at step 9 (after MCP insert).
-Do not skip either pass.
+Run `cleanup:data` at step 5 (before logging) and again at step 9 (after MCP insert).
+Do not skip either pass. Keep/delete rules: [docs/shared/data-cleanup.md](../../../../docs/shared/data-cleanup.md).
 
 Example override: `HEADED=0 WOBO_JOB_LIMIT=5 npm run source:wobo`

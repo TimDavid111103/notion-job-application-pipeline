@@ -11,9 +11,11 @@ bash .cursor/skills/description-scraper/scripts/setup.sh
 ## Scrape pipeline
 
 ```bash
-npm run cleanup:data              # step 2 / 9 — remove temp artifacts
-npm run scrape:descriptions       # step 5 — Playwright scrape from queue
-npm run run-log:basename:scraper  # step 10 — run log path
+npm run cleanup:data                        # step 2 / 9 — remove temp artifacts
+npm run write:jobs-needing-descriptions -- /path/to/mcp-response.json  # step 3 envelope
+npm run write:scrape-queue                  # step 4 — build scrape queue from snapshot
+npm run scrape:descriptions                 # step 5 — Playwright scrape from queue
+npm run run-log:basename:scraper            # step 10 — run log path
 ```
 
 ## Headed fallback / debug

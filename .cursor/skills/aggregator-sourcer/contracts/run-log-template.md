@@ -79,7 +79,7 @@ Brief notes on what happened at each phase. Only include phases that ran.
 (total rows, unique jobs by `jobKey`, new-this-run count, shape issues)
 
 ### 5 — Clear temp `data/` (before logging)
-(everything removed except `sourced-jobs.md` + `.gitkeep`)
+(confirm [data-cleanup.md](../../../../docs/shared/data-cleanup.md))
 
 ### 6 — Dedup
 (tracker query size, duplicates found)
@@ -88,7 +88,7 @@ Brief notes on what happened at each phase. Only include phases that ran.
 (payload count, MCP errors)
 
 ### 9 — Clear temp `data/` (after logging)
-(everything removed except `sourced-jobs.md` + `.gitkeep`; confirm `data/` is clean)
+(confirm [data-cleanup.md](../../../../docs/shared/data-cleanup.md))
 
 ## Self-analysis — skill improvements
 

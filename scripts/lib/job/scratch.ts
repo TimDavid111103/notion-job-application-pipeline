@@ -4,7 +4,7 @@
  * Rolling window of recent postings (default 7 days) loaded into memory during
  * sourcing so aggregators skip known jobs without burning JOB_LIMIT quota.
  *
- * Dedup layers (Notion dedup is a failsafe — see `notion.ts`):
+ * Dedup layers (Notion dedup is a failsafe — see `scripts/lib/notion/`):
  * 1. During sourcing — `loadScratchKeys()` + `isScratchDuplicate()` in aggregator runners.
  * 2. At write — `appendJobs()` via `jobKey()` (prepends only fresh keys).
  * 3. Before Notion log — `dedupeAgainstNotion()` on today's scratch rows vs full tracker snapshot.

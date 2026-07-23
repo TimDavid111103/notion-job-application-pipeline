@@ -11,8 +11,8 @@ if [[ "$(uname -m)" == "arm64" ]]; then
 fi
 npx playwright install chromium
 mkdir -p .auth data \
-  .cursor/skills/application-filler/references/documents
-RESUME_PDF=".cursor/skills/application-filler/references/documents/resume.pdf"
+  .cursor/skills/application-filler/assets/documents
+RESUME_PDF=".cursor/skills/application-filler/assets/documents/resume.pdf"
 if [[ ! -f "$RESUME_PDF" ]]; then
   echo "WARNING: missing $RESUME_PDF — copy your resume there as resume.pdf before fill:application"
 fi

@@ -19,15 +19,10 @@ browser commands require `required_permissions: ["all"]`.
 ## Hard rule — `data/` temp cleanup
 
 **Run `npm run cleanup:data` at step 5 and again at step 9. Do not skip either pass.**
+After each pass, confirm cleanup left only contracted permanent artifacts.
 
-- Deletes temporary lane artifacts while preserving `data/sourced-jobs.md` and `data/.gitkeep`.
-- That includes snapshot/payload JSON, `mcp-*` files and folders, queues, scratch pads, and
-  any other leftover files or directories.
-- After each pass, `data/` must contain only `sourced-jobs.md` and `.gitkeep`.
-- If cleanup prints removals, confirm those paths are gone before continuing.
-
-→ [contracts/data-formats.md](contracts/data-formats.md) — runtime artifacts
 → [docs/shared/data-cleanup.md](../../../docs/shared/data-cleanup.md)
+→ [contracts/data-formats.md](contracts/data-formats.md) — scratch + source artifacts
 
 ## Phase checklist
 
@@ -112,17 +107,13 @@ Confirm captured rows match the data contract. Report **total rows**, **unique j
 
 ## 5. Clear all temporary `data/` files (before logging) — required
 
-**Do this before any Notion snapshot or payload work.** Wipe every temporary artifact from
-prior runs and any leftover dumps so logging starts with a clean `data/` directory.
+**Do this before any Notion snapshot or payload work.**
 
 ```bash
 npm run cleanup:data
 ```
 
-**Done when:** `data/` contains only `sourced-jobs.md` and `.gitkeep`.
-
-→ [contracts/data-formats.md](contracts/data-formats.md) — runtime artifacts
-→ [docs/shared/data-cleanup.md](../../../docs/shared/data-cleanup.md)
+**Done when:** cleanup policy is satisfied — [docs/shared/data-cleanup.md](../../../docs/shared/data-cleanup.md).
 
 ---
 
@@ -157,19 +148,14 @@ Insert prepared payloads into the tracker via `user-notion` MCP.
 
 ## 9. Clear all temporary `data/` files (after logging) — required
 
-**Do this after MCP insert succeeds (or after you stop logging).** Remove every temporary
-file this run created — snapshot, payloads, MCP helper dumps, queues, folders — so only the
-permanent scratch remains.
+**Do this after MCP insert succeeds (or after you stop logging).**
 
 ```bash
 npm run cleanup:data
 ```
 
-**Done when:** `data/` contains only `sourced-jobs.md` and `.gitkeep`.
+**Done when:** cleanup policy is satisfied — [docs/shared/data-cleanup.md](../../../docs/shared/data-cleanup.md).
 If anything else remains, run cleanup again or delete it manually before reporting.
-
-→ [contracts/data-formats.md](contracts/data-formats.md) — runtime artifacts
-→ [docs/shared/data-cleanup.md](../../../docs/shared/data-cleanup.md)
 
 ---
 

@@ -138,7 +138,7 @@ export async function readCurrentCard(
 
   if (!data.jobUrl || data.jobUrl === "#") return { jobUrl: null, job: null };
   // Regex only ALERTS — it never eliminates. Capture the job and surface flags so the
-  // agent can apply judgement (see skill references/job-curation-judgement.md) during curation.
+  // agent can apply judgement (see domain/job-curation-judgement.md) during curation.
   const flags = screeningSignals(data.role, data.desc);
   if (flags.length) console.log(`  ⚠ [review] ${data.role} — ${flags.join(", ")}`);
   const job: SourcedJob = {

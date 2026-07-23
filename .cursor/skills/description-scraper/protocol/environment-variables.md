@@ -5,7 +5,7 @@ Run all commands from **repo root**. Override per run:
 
 | Var | Default | Effect | Used by |
 |---|---|---|---|
-| `HEADED` | unset (headless) | `1` = visible browser; **required retry** when headless fails | `scrape-descriptions.ts` via `browser.ts` |
+| `HEADED` | unset (headless) | `1` = visible browser; **required retry** when headless fails | `scrape-descriptions.ts` via `scripts/lib/browser/` |
 | `SCRAPE_LIMIT` | unlimited | Max URLs processed per run | `job-description.ts` `getScrapeLimit()` |
 | `SCRAPE_TIMEOUT_MS` | 30000 | Per-URL navigation timeout (ms) | `job-description.ts` |
 | `SCRAPE_DELAY_MS` | 1000 | Pause between URLs (ms) | `scrape-descriptions.ts` |

@@ -2,7 +2,7 @@
 
 Single source of truth for dead/broken URL handling (scrape + fill lanes).
 
-Implementation: `scripts/lib/url-health.ts`, `isDeletableFailure()` in `scripts/lib/artifacts/scrape-artifacts.ts`.
+Implementation: `scripts/lib/url-health.ts` (`isDeletableFailure()`, `classifyPageFailure()`).
 
 ## Failure reasons
 

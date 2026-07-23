@@ -53,6 +53,6 @@ reconnect and classify spam vs success. Requires Accessibility permission for Cu
 
 **Proven in:** Greenhouse, Lever, Ashby, Workday (basic), Breezy/generic fallback.
 
-**High priority — Handshake:** in-app Apply modal (not external ATS). Observed on LDM (`jobs/11173247`): click **Apply** → modal with profile resume (often pre-attached — do **not** upload `resume.pdf` into the cover-letter file input), cover letter via generated PDF to `file-Cover Letter` / “Upload new”, **Submit Application**; may show school-year mismatch warnings. Iterate headed fills (reuse `.auth/handshake.json`) until discovery + cover-letter PDF + chat handoff match Ashby reliability. Probe helper: `scripts/fill/probe-handshake-apply.ts`.
+**High priority — Handshake:** in-app Apply modal (not external ATS). Click **Apply** → modal with profile resume (often pre-attached — do **not** upload `resume.pdf` into the cover-letter file input), cover letter via generated PDF to `file-Cover Letter` / “Upload new”, **Submit Application**; may show school-year mismatch warnings. Iterate headed fills (reuse `.auth/handshake.json`) until discovery + cover-letter PDF + chat handoff match Ashby reliability.
 
 **Still out:** multi-page Workday wizards, account creation.

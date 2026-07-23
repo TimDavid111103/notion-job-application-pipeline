@@ -77,22 +77,9 @@ hosts:
 
 ## Failure classification
 
-| Code | Detection | Deletable |
-|---|---|---|
-| `404` | HTTP 404/410 | Yes |
-| `dns_failure` | `ERR_NAME_NOT_RESOLVED`, connection refused | Yes |
-| `posting_closed` | Body matches closed/filled patterns | Yes |
-| `login_required` | Sign-in / log-in prompts in first 1500 chars without public job content — see [url-health-policy.md](../../../../docs/shared/url-health-policy.md) | **No** |
-| `captcha` | captcha / verify-human / security-verification / not-a-bot interstitial text | **No** |
-| `empty_content` | Extracted text < 200 chars | Yes |
-| `non_english` | Description fails `isEnglishDescription()` | Yes |
-| `timeout` | Navigation timeout | Yes |
-| `navigation_error` | Other navigation failures | Yes |
-| `missing_url` | Empty Job URL in queue | Yes |
-
-`login_required` and `captcha` are transient/auth failures — they leave the tracker
-row intact so a missing session never deletes a valid posting. Delete policy:
-[notion/mcp-workflows.md](../notion/mcp-workflows.md).
+Detection heuristics (DOM/HTTP patterns) live in `scripts/lib/scrape/job-description.ts`.
+Deletable vs preserve policy: [docs/shared/url-health-policy.md](../../../../docs/shared/url-health-policy.md).
+Delete workflow: [notion/mcp-workflows.md](../notion/mcp-workflows.md).
 
 ## Authenticated hosts
 

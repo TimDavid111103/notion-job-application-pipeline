@@ -12,6 +12,7 @@
 | Repository script layout | [protocol/repository-scripts-map.md](../protocol/repository-scripts-map.md) |
 | Environment variables and limits | [protocol/environment-variables.md](../protocol/environment-variables.md) |
 | Tracker schema and logging eligibility | [notion/tracker-schema.md](../notion/tracker-schema.md) |
+| Shared Notion tracker | [docs/shared/notion-tracker.md](../../../../docs/shared/notion-tracker.md) |
 | Snapshot, dedup, payload, and insert | [notion/mcp-workflows.md](../notion/mcp-workflows.md) |
 | `SourcedJob`, scratch, dedup, and artifacts | [contracts/data-formats.md](../contracts/data-formats.md) |
 | Run log filename and template | [contracts/run-log-template.md](../contracts/run-log-template.md) |
