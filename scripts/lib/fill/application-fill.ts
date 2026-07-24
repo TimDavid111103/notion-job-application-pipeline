@@ -23,6 +23,7 @@ import {
   toDateInputValue,
 } from "./fill-references.js";
 import { resolveAiFill } from "./ai-fill.js";
+import { fillWorkdayApplicationForm } from "./workday-fill.js";
 import { prepareCoverLetterPdf } from "./cover-letter-pdf.js";
 import { checkUrlHealth } from "../url-health.js";
 import {
@@ -39,37 +40,8 @@ const APPLY_BUTTON_PATTERNS = [
   /start\s*application/i,
 ];
 
-const COOKIE_ACCEPT_PATTERNS = [
-  /accept\s*all\s*cookies/i,
-  /accept\s*all/i,
-  /allow\s*all\s*cookies/i,
-  /allow\s*all/i,
-  /^accept$/i,
-  /agree\s*and\s*continue/i,
-  /i\s*agree/i,
-];
-
-/** Dismiss cookie / consent overlays that block Apply and form fields (Workable, Workday, etc.). */
-export async function dismissCookieBanner(page: Page): Promise<boolean> {
-  for (const re of COOKIE_ACCEPT_PATTERNS) {
-    const btn = page.getByRole("button", { name: re }).first();
-    if (await btn.isVisible().catch(() => false)) {
-      await btn.click({ timeout: 3_000 }).catch(() => {});
-      await page.waitForTimeout(500);
-      return true;
-    }
-  }
-  // Some banners use links or custom roles.
-  for (const re of COOKIE_ACCEPT_PATTERNS) {
-    const el = page.locator("button, a, [role='button']").filter({ hasText: re }).first();
-    if (await el.isVisible().catch(() => false)) {
-      await el.click({ timeout: 3_000 }).catch(() => {});
-      await page.waitForTimeout(500);
-      return true;
-    }
-  }
-  return false;
-}
+export { dismissCookieBanner } from "./cookie-banner.js";
+import { dismissCookieBanner } from "./cookie-banner.js";
 
 export async function navigateToApplicationForm(page: Page, rawUrl: string): Promise<void> {
   const url = normalizeScrapeUrl(cleanJobUrl(rawUrl));
@@ -131,35 +103,8 @@ export async function navigateToApplicationForm(page: Page, rawUrl: string): Pro
     return;
   }
 
-  if (host.includes("myworkdayjobs.com") || host.includes("workday.com")) {
-    await dismissCookieBanner(page);
-    const apply = page
-      .locator('[data-automation-id="adventureButton"]')
-      .or(page.getByRole("button", { name: /^apply$/i }))
-      .first();
-    if (await apply.isVisible().catch(() => false)) {
-      await apply.click();
-      await page.waitForTimeout(1500);
-    }
-    // Prefer Autofill with Resume over Apply Manually when the modal appears.
-    const autofill = page
-      .locator('[data-automation-id="autofillWithResume"]')
-      .or(page.getByRole("button", { name: /autofill with resume/i }))
-      .first();
-    const applyManual = page
-      .locator('[data-automation-id="applyManually"]')
-      .or(page.getByRole("button", { name: /apply manually/i }))
-      .first();
-    if (await autofill.isVisible().catch(() => false)) {
-      await autofill.click();
-      await page.waitForTimeout(2500);
-    } else if (await applyManual.isVisible().catch(() => false)) {
-      await applyManual.click();
-      await page.waitForTimeout(2500);
-    }
-    await dismissCookieBanner(page);
-    return;
-  }
+  // Workday (myworkdayjobs.com) has its own dedicated multi-step flow — see fillWorkdayApplicationForm()
+  // in workday-fill.ts, routed from fillApplicationForm() before navigation even starts.
 
   // Workable and generic hosts
   if (host.includes("workable.com")) {
@@ -1200,11 +1145,26 @@ function isoToMdY(iso: string): string {
   return `${m[2]}/${m[3]}/${m[1]}`;
 }
 
+function isWorkdayUrl(rawUrl: string): boolean {
+  try {
+    const host = new URL(normalizeScrapeUrl(cleanJobUrl(rawUrl))).hostname.toLowerCase();
+    return host.includes("myworkdayjobs.com") || host.includes("workday.com");
+  } catch {
+    return false;
+  }
+}
+
 export async function fillApplicationForm(
   page: Page,
   item: FillQueueItem,
   refs: FillReferences
 ): Promise<FillResultItem> {
+  // Workday's multi-step wizard + tenant-account model doesn't fit the single-page
+  // discover-then-fill engine below — it gets its own dedicated flow.
+  if (isWorkdayUrl(item.jobUrl)) {
+    return fillWorkdayApplicationForm(page, item, refs);
+  }
+
   const ctx: FillContext = {
     company: item.company,
     role: item.role,

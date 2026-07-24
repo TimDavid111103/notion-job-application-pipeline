@@ -50,6 +50,7 @@ export const PROJECTS_FILE = path.join(FILL_ASSETS_DIR, "projects.md");
 export const ANSWERS_FILE = path.join(FILL_ASSETS_DIR, "answers.md");
 export const SKILLS_PROFILE_FILE = path.join(FILL_ASSETS_DIR, "skills-profile.md");
 export const COVER_LETTER_MD_FILE = path.join(FILL_ASSETS_DIR, "cover-letter.md");
+export const WORKDAY_ACCOUNT_FILE = path.join(FILL_ASSETS_DIR, "workday-account.md");
 export const RESUME_FILE = path.join(FILL_ASSETS_DIR, "documents", "resume.pdf");
 export const COVER_LETTER_TEMPLATE_FILE = path.join(
   FILL_ASSETS_DIR,
