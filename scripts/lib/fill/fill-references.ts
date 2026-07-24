@@ -124,9 +124,7 @@ export function normalizeLabel(label: string): string {
     .replace(/you're/g, "you are")
     .replace(/i'm/g, "i am")
     .replace(/it's/g, "it is")
-    // Strip straight AND curly/typographic apostrophes (U+2018/\u2019/\u02BC) so "master's"
-    // normalizes to "masters" — not "master s" via the broader punctuation strip below.
-    .replace(/['\u2018\u2019\u02bc]/g, "")
+    .replace(/['']/g, "")
     .replace(/[^\p{L}\p{N}\s]+/gu, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -522,48 +520,11 @@ export function matchYesNo(label: string, personal: Map<string, string>, skills:
   if (/sponsor/i.test(norm)) {
     return personal.get("require visa sponsorship now or in future") ?? null;
   }
-  if (
-    /authoriz|legally authorized|work in the united states|work authorization|eligible to work in the country/i.test(
-      norm
-    )
-  ) {
+  if (/authoriz|legally authorized|work in the united states|work authorization/i.test(norm)) {
     return personal.get("authorized to work in the us") ?? null;
   }
   if (/relocat|bay area|willing to (move|relocate)|live in .*(area|city)|onsite in/i.test(norm)) {
     return personal.get("willing to relocate") ?? null;
-  }
-
-  // Common Workday-style compliance / screening questions — sourced from
-  // personal-information.md "Compliance / screening defaults" so answers stay data-driven.
-  if (/high school diploma|\bged\b/i.test(norm)) {
-    return personal.get("high school diploma or equivalent") ?? null;
-  }
-  if (/four.year (university|college) (degree|diploma)|bachelor'?s? degree/i.test(norm)) {
-    return personal.get("four year college degree") ?? null;
-  }
-  if (/master'?s? degree/i.test(norm)) {
-    return personal.get("masters degree") ?? null;
-  }
-  if (/doctoral degree|\bphd\b/i.test(norm)) {
-    return personal.get("doctoral degree") ?? null;
-  }
-  if (
-    /familial relationship|related to (a |any )?(current or former )?employee|relative (currently|who) works?/i.test(
-      norm
-    )
-  ) {
-    return personal.get("related to a current or former employee") ?? null;
-  }
-  if (
-    /previously (been )?employed by|worked (for|at) this (company|employer|firm)|former employee of/i.test(norm)
-  ) {
-    return personal.get("previously employed by this employer") ?? null;
-  }
-  if (/willing to travel/i.test(norm)) {
-    return personal.get("willing to travel for business") ?? null;
-  }
-  if (/meet the minimum requirements/i.test(norm)) {
-    return personal.get("meets minimum requirements for this position") ?? null;
   }
   if (/docker|kubernetes/i.test(norm)) {
     const tier = techTier("Docker", skills);
@@ -873,12 +834,8 @@ export function isOpenEndedField(label: string, type: string): boolean {
     return false;
   }
   // Word boundaries — avoid "linkedin"/"name" substring false positives on long questions.
-  // "compensation"/"pay" alongside "salary" — matchPersonalInfo already resolves these
-  // numerically; don't let the textarea/type==="textarea" fallback below hand them to AI-fill.
   if (
-    /\b(name|email|phone|address|linkedin|github|salary|compensation|pay|date|school|university)\b/i.test(
-      norm
-    )
+    /\b(name|email|phone|address|linkedin|github|salary|date|school|university)\b/i.test(norm)
   ) {
     return false;
   }

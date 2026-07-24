@@ -58,19 +58,6 @@ Copy to `.cursor/skills/application-filler/assets/personal-information.md` and f
 
 Salary policy: midpoint of range when a range applies; otherwise Salary default.
 
-## Compliance / screening defaults
-Common Yes/No screening questions (Workday and other ATS platforms). Flip any of these if untrue.
-| Field | Value |
-|---|---|
-| High school diploma or equivalent | Yes / No |
-| Four year college degree | Yes / No |
-| Masters degree | Yes / No |
-| Doctoral degree | Yes / No |
-| Related to a current or former employee | Yes / No |
-| Previously employed by this employer | Yes / No |
-| Willing to travel for business | Yes / No |
-| Meets minimum requirements for this position | Yes / No |
-
 ## Education
 | Field | Value |
 |---|---|
